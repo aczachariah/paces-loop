@@ -1,0 +1,17 @@
+{
+  "name": "paces-loop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PACES Practice App Monorepo",
+  "scripts": {
+    "dev": "pnpm --filter \"@paces/*\" --parallel dev",
+    "build": "pnpm --filter \"@paces/*\" build",
+    "lint": "pnpm --filter \"@paces/*\" lint",
+    "test": "pnpm --filter \"@paces/*\" test",
+    "clean": "find . -name \"node_modules\" -type d -prune -exec rm -rf '{}' + && find . -name \".next\" -type d -prune -exec rm -rf '{}' + && find . -name \"dist\" -type d -prune -exec rm -rf '{}' +"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "packageManager": "pnpm@11.5.2"
+}
