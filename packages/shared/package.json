@@ -6,7 +6,10 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "echo \"No tests specified for @paces/shared\""
+    "test": "tsx src/stations/cardiovascular.test.ts"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {
+    "tsx": "^4.21.1"
+  }
 }
