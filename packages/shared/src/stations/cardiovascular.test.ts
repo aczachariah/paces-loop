@@ -63,6 +63,23 @@ function runTests() {
   }
   console.log('✓ Test 4 passed!');
 
+  // Test 5: Verify mock feedback structure
+  console.log('Test 5: Verifying mock feedback structure...');
+  const { mockFeedback } = cardiovascularStation;
+  if (!Array.isArray(mockFeedback) || mockFeedback.length !== 3) {
+    throw new Error('Expected mockFeedback to be an array of 3 items');
+  }
+  const performances = mockFeedback.map(f => f.performance);
+  if (!performances.includes('excellent') || !performances.includes('satisfactory') || !performances.includes('needs-improvement')) {
+    throw new Error('mockFeedback is missing one or more performance levels');
+  }
+  mockFeedback.forEach(f => {
+    if (typeof f.score !== 'number' || !f.feedback) {
+      throw new Error(`Invalid mock feedback item: ${JSON.stringify(f)}`);
+    }
+  });
+  console.log('✓ Test 5 passed!');
+
   console.log('\nAll Cardiovascular Station Config Tests Passed Successfully!');
 }
 
