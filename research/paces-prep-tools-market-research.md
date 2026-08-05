@@ -120,6 +120,36 @@ The PACES (Practical Assessment of Clinical Examination Skills) exam prep market
   - Not clinical skills focused
   - Expensive
 
+### 9. PACES AID
+- **URL:** https://pacesaid.com
+- **Type:** Digital PACES revision resource
+- **PACES relevance:** HIGH — specifically designed for PACES
+- **Strengths:**
+  - Dedicated PACES focus
+  - Interactive textbook with digital auscultations, clinical images, and videos
+  - Covers all essential theoretical content for PACES
+  - Structured revision resource
+- **Weaknesses:**
+  - Limited public information on features/pricing
+  - Not clear if it includes adaptive learning or spaced repetition
+  - Smaller user base, less community validation
+- **Pricing:** Unknown (not publicly listed)
+
+### 10. Oncourse AI
+- **URL:** https://oncourse.ai (inferred)
+- **Type:** AI-powered study layer for MRCP PACES
+- **PACES relevance:** HIGH — specifically positioned for PACES
+- **Strengths:**
+  - AI-powered clinical reasoning practice
+  - Focus on station practice and weak-skill repair
+  - Modern approach: "PACES is won by repeated clinical reasoning, station practice, and weak-skill repair, not by collecting another untouched book or course"
+  - Targets the core gap: structured clinical practice
+- **Weaknesses:**
+  - Very new, limited public information
+  - Unclear pricing and user base
+  - Not yet widely adopted or reviewed
+- **Pricing:** Unknown
+
 ---
 
 ## Reddit Community Insights
@@ -200,6 +230,8 @@ The PACES (Practical Assessment of Clinical Examination Skills) exam prep market
 | TrueLearn | ❌ | ✅ | ✅ | ❌ | £££ |
 | UWorld | ❌ | ✅ | ❌ | ❌ | ££££ |
 | AMBOSS | ❌ | ✅ | Partial | ❌ | £££ |
+| PACES AID | ✅ | Partial | ❌ | Partial | Unknown |
+| Oncourse AI | ✅ | Partial | ✅ | ✅ | Unknown |
 | **Your App** | **✅** | **✅** | **✅** | **✅** | **TBD** |
 
 ---
@@ -219,13 +251,16 @@ The PACES (Practical Assessment of Clinical Examination Skills) exam prep market
 
 ## Key Takeaways for PACES-Loop
 
-1. **No direct competitor** — No existing tool is a dedicated PACES digital prep platform
-2. **Pastest is the closest** but focused on written exams, not clinical skills
-3. **Geeky Medics is the closest for clinical skills** but not PACES-specific
-4. **Market is ready** — candidates are actively seeking better digital tools for PACES
-5. **Pricing flexibility** — market supports £50-300/year range for quality tools
-6. **Mobile-first is expected** — candidates study on wards, during commutes, in fragments
-7. **Community is important** — Reddit and IMG forums are active discussion spaces
+1. **No direct competitor** — No existing tool is a dedicated PACES digital prep platform with adaptive learning
+2. **PACES AID and Oncourse AI are emerging** — Both are PACES-specific but limited in features (no adaptive learning, unclear pricing, small user bases)
+3. **Pastest is the closest** but focused on written exams, not clinical skills
+4. **Geeky Medics is the closest for clinical skills** but not PACES-specific
+5. **Market is ready** — candidates are actively seeking better digital tools for PACES
+6. **Pricing flexibility** — market supports £50-300/year range for quality tools
+7. **Mobile-first is expected** — candidates study on wards, during commutes, in fragments
+8. **Community is important** — Reddit and IMG forums are active discussion spaces
+9. **In-person courses are expensive but still not enough** — £500-2000+ for 3-4 day courses, yet many still fail
+10. **The core gap is structured clinical practice** — candidates need repeated station practice with feedback, not just content consumption
 
 ---
 
