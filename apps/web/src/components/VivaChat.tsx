@@ -1,7 +1,15 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { ExaminerMessage } from '@paces/shared';
+
+interface TTSState {
+  [messageIndex: number]: {
+    audioData: string | null;
+    playing: boolean;
+    loading: boolean;
+  };
+}
 
 interface VivaChatProps {
   messages: ExaminerMessage[];
@@ -12,11 +20,107 @@ interface VivaChatProps {
 
 export const VivaChat: React.FC<VivaChatProps> = ({ messages, onSendMessage, loading, isComplete }) => {
   const [input, setInput] = useState('');
+  const [ttsState, setTtsState] = useState<TTSState>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const audioRefs = useRef<{ [key: number]: HTMLAudioElement }>({});
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Auto-generate TTS for new examiner messages
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.role === 'examiner') {
+      const idx = messages.length - 1;
+      // Only fetch if we haven't already
+      setTtsState(prev => {
+        if (prev[idx]?.audioData || prev[idx]?.loading) return prev;
+        return { ...prev, [idx]: { audioData: null, playing: false, loading: true } };
+      });
+
+      // Fetch TTS audio for the examiner's message
+      fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: lastMsg.content,
+          voice: 'en-GB-RyanNeural',
+        }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.audioData) {
+            setTtsState(prev => ({
+              ...prev,
+              [idx]: { audioData: data.audioData, playing: false, loading: false },
+            }));
+            // Auto-play after a brief delay
+            setTimeout(() => playAudio(idx, data.audioData), 300);
+          }
+        })
+        .catch(() => {
+          setTtsState(prev => ({
+            ...prev,
+            [idx]: { audioData: null, playing: false, loading: false },
+          }));
+        });
+    }
+  }, [messages]);
+
+  const playAudio = useCallback((idx: number, audioData: string) => {
+    try {
+      // Stop any currently playing audio
+      Object.values(audioRefs.current).forEach(audio => {
+        audio.pause();
+        audio.currentTime = 0;
+      });
+
+      const byteCharacters = atob(audioData);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+
+      const audio = new Audio(url);
+      audioRefs.current[idx] = audio;
+
+      audio.onended = () => {
+        setTtsState(prev => ({ ...prev, [idx]: { ...prev[idx], playing: false } }));
+        URL.revokeObjectURL(url);
+      };
+
+      audio.onerror = () => {
+        setTtsState(prev => ({ ...prev, [idx]: { ...prev[idx], playing: false } }));
+        URL.revokeObjectURL(url);
+      };
+
+      audio.play().then(() => {
+        setTtsState(prev => ({ ...prev, [idx]: { ...prev[idx], playing: true } }));
+      }).catch(() => {
+        setTtsState(prev => ({ ...prev, [idx]: { ...prev[idx], playing: false } }));
+      });
+    } catch (err) {
+      console.error('Audio playback error:', err);
+      setTtsState(prev => ({ ...prev, [idx]: { ...prev[idx], playing: false } }));
+    }
+  }, []);
+
+  const togglePlayback = useCallback((idx: number) => {
+    const state = ttsState[idx];
+    if (!state?.audioData) return;
+
+    if (state.playing && audioRefs.current[idx]) {
+      audioRefs.current[idx].pause();
+      audioRefs.current[idx].currentTime = 0;
+      setTtsState(prev => ({ ...prev, [idx]: { ...prev[idx], playing: false } }));
+    } else {
+      playAudio(idx, state.audioData);
+    }
+  }, [ttsState, playAudio]);
 
   const handleSend = () => {
     if (input.trim() && !loading && !isComplete) {
@@ -85,36 +189,63 @@ export const VivaChat: React.FC<VivaChatProps> = ({ messages, onSendMessage, loa
           </div>
         )}
 
-        {messages.map((msg, i) => (
-          <div key={i} style={{
-            display: 'flex',
-            justifyContent: msg.role === 'examiner' ? 'flex-start' : 'flex-end',
-          }}>
-            <div style={{
-              maxWidth: '80%',
-              padding: '0.75rem 1rem',
-              borderRadius: '8px',
-              backgroundColor: msg.role === 'examiner' ? '#ffffff' : '#3b82f6',
-              color: msg.role === 'examiner' ? '#1f2937' : '#ffffff',
-              border: msg.role === 'examiner' ? '1px solid #e5e7eb' : 'none',
-              boxShadow: msg.role === 'examiner' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
-              whiteSpace: 'pre-line',
-              lineHeight: '1.5',
-              fontSize: '0.925rem',
+        {messages.map((msg, i) => {
+          const voiceState = ttsState[i];
+          return (
+            <div key={i} style={{
+              display: 'flex',
+              justifyContent: msg.role === 'examiner' ? 'flex-start' : 'flex-end',
+              gap: '0.5rem',
+              alignItems: 'flex-end',
             }}>
+              {msg.role === 'examiner' && voiceState?.audioData && (
+                <button
+                  onClick={() => togglePlayback(i)}
+                  title={voiceState.playing ? 'Stop' : 'Play'}
+                  style={{
+                    background: 'none',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.9rem',
+                    flexShrink: 0,
+                    backgroundColor: voiceState.playing ? '#dbeafe' : '#ffffff',
+                  }}
+                >
+                  {voiceState.loading ? '⏳' : voiceState.playing ? '🔊' : '🔈'}
+                </button>
+              )}
               <div style={{
-                fontSize: '0.7rem',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                color: msg.role === 'examiner' ? '#6b7280' : 'rgba(255,255,255,0.7)',
-                marginBottom: '0.25rem',
+                maxWidth: '80%',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                backgroundColor: msg.role === 'examiner' ? '#ffffff' : '#3b82f6',
+                color: msg.role === 'examiner' ? '#1f2937' : '#ffffff',
+                border: msg.role === 'examiner' ? '1px solid #e5e7eb' : 'none',
+                boxShadow: msg.role === 'examiner' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                whiteSpace: 'pre-line',
+                lineHeight: '1.5',
+                fontSize: '0.925rem',
               }}>
-                {msg.role === 'examiner' ? 'Examiner' : 'You'}
+                <div style={{
+                  fontSize: '0.7rem',
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  color: msg.role === 'examiner' ? '#6b7280' : 'rgba(255,255,255,0.7)',
+                  marginBottom: '0.25rem',
+                }}>
+                  {msg.role === 'examiner' ? 'Examiner' : 'You'}
+                </div>
+                {msg.content}
               </div>
-              {msg.content}
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {loading && (
           <div style={{
