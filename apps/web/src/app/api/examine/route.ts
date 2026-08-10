@@ -22,7 +22,7 @@ interface ExamineResponse {
 // ─── Constants ────────────────────────────────────────────────────
 
 const API_URL = 'https://api.engy.ai/v1/chat/completions';
-const API_KEY = process.env.HERMES_CUSTOM_API_ENGY_AI_API_KEY || '';
+const API_KEY = process.env.ENGY_API_KEY || process.env.HERMES_CUSTOM_API_ENGY_AI_API_KEY || '';
 const MODEL = 'deepseek-v4-flash-0731';
 
 const VIVA_QUESTIONS = [
