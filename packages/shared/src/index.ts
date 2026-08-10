@@ -9,3 +9,4 @@ export const formatDuration = (minutes: number): string => {
 };
 
 export * from './stations/cardiovascular';
+export * from './stations/cases';

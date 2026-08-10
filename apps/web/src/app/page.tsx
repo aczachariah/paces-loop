@@ -12,8 +12,12 @@ import { ScenarioBriefs } from '../components/ScenarioBriefs';
 import { FeedbackReport } from '../components/FeedbackReport';
 import { ConfigEditor } from '../components/ConfigEditor';
 import { SessionControl } from '../components/SessionControl';
+import { AIExaminer } from '../components/AIExaminer';
+
+type Mode = 'manual' | 'ai-examiner';
 
 export default function Home() {
+  const [mode, setMode] = useState<Mode>('manual');
   // Config state (allows editing the station on the fly)
   const [config, setConfig] = useState<StationConfig>(initialConfig);
   const [isEditing, setIsEditing] = useState(false);
@@ -153,8 +157,60 @@ export default function Home() {
   };
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '4rem' }}>
-      {/* Header & Config Toggle */}
+      <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '4rem' }}>
+      
+        {/* Mode Toggle */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '0.5rem',
+          marginBottom: '2rem',
+          backgroundColor: '#ffffff',
+          padding: '0.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        }}>
+          <button
+            onClick={() => setMode('manual')}
+            style={{
+              flex: 1,
+              padding: '0.6rem 1.5rem',
+              border: 'none',
+              borderRadius: '6px',
+              backgroundColor: mode === 'manual' ? '#3b82f6' : '#f3f4f6',
+              color: mode === 'manual' ? '#ffffff' : '#6b7280',
+              fontWeight: '700',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              transition: 'all 0.2s',
+            }}
+          >
+            Manual Practice (Existing)
+          </button>
+          <button
+            onClick={() => setMode('ai-examiner')}
+            style={{
+              flex: 1,
+              padding: '0.6rem 1.5rem',
+              border: 'none',
+              borderRadius: '6px',
+              backgroundColor: mode === 'ai-examiner' ? '#10b981' : '#f3f4f6',
+              color: mode === 'ai-examiner' ? '#ffffff' : '#6b7280',
+              fontWeight: '700',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              transition: 'all 0.2s',
+            }}
+          >
+            AI Examiner Mode ✨
+          </button>
+        </div>
+
+        {mode === 'ai-examiner' ? (
+          <AIExaminer />
+        ) : (
+          <>
+        {/* Header & Config Toggle */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ margin: 0, color: '#1f2937' }}>Cardiovascular Station</h2>
@@ -249,7 +305,9 @@ export default function Home() {
 
         </div>
 
-      </div>
-    </div>
-  );
-}
+              </div>
+                  </>
+                )}
+            </div>
+          );
+        }
