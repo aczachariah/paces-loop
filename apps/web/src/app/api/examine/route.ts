@@ -28,9 +28,14 @@ interface ExamineResponse {
 
 // ─── Constants ────────────────────────────────────────────────────
 
-const API_URL = 'https://api.engy.ai/v1/chat/completions';
-const API_KEY = process.env.ENGY_API_KEY || process.env.HERMES_CUSTOM_API_ENGY_AI_API_KEY || '';
-const MODEL = 'deepseek-v4-flash-0731';
+const ENGY_URL = 'https://api.engy.ai/v1/chat/completions';
+const ENGY_KEY = process.env.ENGY_API_KEY || process.env.HERMES_CUSTOM_API_ENGY_AI_API_KEY || '';
+const SAYGM_URL = 'https://api.saygm.com/v1/chat/completions';
+const SAYGM_KEY = process.env.SAYGM_API_KEY || '';
+
+// Engy model name vs Saygm model name
+const ENGY_MODEL = 'deepseek-v4-flash-0731';
+const SAYGM_MODEL = 'deepseek-ai/DeepSeek-V4-Flash-0731-TEE';
 
 const VIVA_QUESTIONS = [
   "Thank you for your presentation. Tell me, what other clinical signs would you look for to support your diagnosis?",
@@ -86,30 +91,59 @@ IMPORTANT RULES:
 - Do not repeat what the candidate said back to them unless providing feedback.`;
 }
 
-// ─── Examiner Logic ───────────────────────────────────────────────
+// ─── Multi-provider Inference ────────────────────────────────
 
-async function callEngyAPI(messages: { role: string; content: string }[]): Promise<string> {
-  const response = await fetch(API_URL, {
+async function callProvider(
+  url: string,
+  apiKey: string,
+  model: string,
+  messages: { role: string; content: string }[],
+  label: string
+): Promise<string> {
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${API_KEY}`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       messages,
       max_tokens: 1024,
       temperature: 0.5,
     }),
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`Engy API error (${response.status}): ${text.slice(0, 200)}`);
+    throw new Error(`${label} API error (${response.status}): ${text.slice(0, 200)}`);
   }
 
   const data = await response.json();
   return data.choices?.[0]?.message?.content || '';
+}
+
+async function callInference(messages: { role: string; content: string }[]): Promise<string> {
+  // Try Engy first
+  if (ENGY_KEY) {
+    try {
+      return await callProvider(ENGY_URL, ENGY_KEY, ENGY_MODEL, messages, 'Engy');
+    } catch (err) {
+      console.error('Engy failed, trying Saygm:', (err as Error).message);
+    }
+  }
+
+  // Fallback to Saygm
+  if (SAYGM_KEY) {
+    try {
+      return await callProvider(SAYGM_URL, SAYGM_KEY, SAYGM_MODEL, messages, 'Saygm');
+    } catch (err) {
+      console.error('Saygm also failed:', (err as Error).message);
+    }
+  }
+
+  throw new Error('All inference providers failed. Check API keys.');
 }
 
 function parseFeedback(aiResponse: string): ExaminerFeedback {
@@ -151,9 +185,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const body: ExamineRequest = await request.json();
     const { caseId, phase, userInput, conversationHistory = [], askedQuestions = [] } = body;
 
-    if (!API_KEY) {
+    if (!ENGY_KEY && !SAYGM_KEY) {
       return NextResponse.json(
-        { error: 'API key not configured' },
+        { error: 'No API keys configured. Set ENGY_API_KEY or SAYGM_API_KEY.' },
         { status: 500 }
       );
     }
@@ -180,7 +214,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         content: `The candidate has examined the patient and presents their findings:\n\n${userInput}\n\nRespond as an examiner — prompt them for more if needed, but do not reveal missed findings.`,
       });
 
-      const aiResponse = await callEngyAPI(messages);
+      const aiResponse = await callInference(messages);
 
       return NextResponse.json({
         examinerResponse: aiResponse,
@@ -227,7 +261,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         content: `Candidate's answer: ${userInput}\n\n${nextQuestion ? `Acknowledge briefly and ask: ${nextQuestion}` : 'If no more questions, tell them the viva is complete and you will now provide feedback.'}`,
       });
 
-      const aiResponse = await callEngyAPI(messages);
+      const aiResponse = await callInference(messages);
 
       const isComplete = questionIndex >= VIVA_QUESTIONS.length ||
         /viva (is )?complete|all questions|moving on to feedback|let me give you feedback|overall score/i.test(aiResponse);
@@ -244,7 +278,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           { role: 'user' as const, content: `Now provide the structured feedback.` },
         ];
 
-        const feedbackResponse = await callEngyAPI(allMessages);
+        const feedbackResponse = await callInference(allMessages);
         const feedback = parseFeedback(feedbackResponse);
 
         return NextResponse.json({
@@ -276,7 +310,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
       }
 
-      const aiResponse = await callEngyAPI(messages);
+      const aiResponse = await callInference(messages);
       const feedback = parseFeedback(aiResponse);
 
       return NextResponse.json({
