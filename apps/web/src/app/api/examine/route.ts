@@ -12,7 +12,7 @@ for (const c of allCases) {
 
 interface ExamineRequest {
   caseId: string;
-  phase: 'present' | 'viva' | 'feedback';
+  phase: 'examine' | 'present' | 'viva' | 'feedback';
   userInput: string;
   conversationHistory: ExaminerMessage[];
   askedQuestions?: string[];
@@ -207,7 +207,59 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { role: 'system', content: systemPrompt },
     ];
 
-    if (phase === 'present') {
+    if (phase === 'examine') {
+      // Patient simulator mode — candidate talks through their exam
+      messages.push({
+        role: 'user' as const,
+        content: `You are now in PATIENT SIMULATOR mode. The candidate will describe what examinations they want to perform on you.
+
+CRITICAL RULES:
+1. Only reveal findings for the SPECIFIC examination technique the candidate describes
+2. If they ask vaguely ("what's wrong?"), prompt them to start examining
+3. If they describe a technique, reveal the EXACT finding they would discover
+4. If they miss a step, do NOT volunteer that finding — they must ask
+5. If they describe incorrect technique, gently correct them
+6. Keep responses concise — 1-3 sentences
+7. Use proper medical terminology
+
+Examples:
+Candidate: "I'll inspect the hands"
+You: "The nails show clubbing with splinter haemorrhages."
+
+Candidate: "Palpate the apex beat"
+You: "The apex beat is displaced to the 6th intercostal space, tapping in nature."
+
+Candidate: "Auscultate at the apex with the bell"
+You: "A loud mid-diastolic murmur is heard, loudest at the apex with the bell."
+
+Candidate: "What's wrong with you?"
+You: "Please start your examination. What would you like to examine first?"
+`,
+      });
+      // Add conversation history
+      for (const msg of conversationHistory) {
+        messages.push({
+          role: (msg.role as string) === 'patient' ? 'assistant' : 'user',
+          content: msg.content,
+        });
+      }
+      // Add latest user input
+      if (userInput) {
+        messages.push({
+          role: 'user' as const,
+          content: `The candidate says: ${userInput}`,
+        });
+      }
+
+      const aiResponse = await callInference(messages);
+
+      return NextResponse.json({
+        examinerResponse: aiResponse,
+        complete: false,
+        askedQuestions,
+      } as ExamineResponse);
+
+    } else if (phase === 'present') {
       // Initial presentation from the candidate
       messages.push({
         role: 'user',

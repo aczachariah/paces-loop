@@ -109,6 +109,7 @@ function CaseSelector({ onSelect }: { onSelect: (c: CaseDefinition) => void }) {
 
 // ─── Examination Phase ────────────────────────────────────────────
 
+
 function ExaminingPhase({
   caseData,
   timeRemaining,
@@ -118,109 +119,164 @@ function ExaminingPhase({
   timeRemaining: number;
   onComplete: () => void;
 }) {
+  const [messages, setMessages] = useState<{ role: 'patient' | 'candidate'; content: string }[]>([]);
+  const [input, setInput] = useState('');
+  const [examLoading, setExamLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
 
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || examLoading) return;
+    const userInput = input.trim();
+    setInput('');
+    const newMessages = [...messages, { role: 'candidate' as const, content: userInput }];
+    setMessages(newMessages);
+    setExamLoading(true);
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const res = await fetch('/api/examine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caseId: caseData.id,
+          phase: 'examine',
+          userInput,
+          conversationHistory: messages,
+          askedQuestions: [],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'patient', content: data.examinerResponse }]);
+    } catch {
+      setMessages(prev => [...prev, { role: 'patient', content: 'Please describe what you would like to examine next.' }]);
+    } finally {
+      setExamLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
-    <div style={{
-      maxWidth: '700px',
-      margin: '0 auto',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '1.5rem',
-    }}>
-      {/* Timer */}
-      <div style={{
-        textAlign: 'center',
-        padding: '1rem',
-        backgroundColor: timeRemaining <= 60 ? '#fee2e2' : '#f3f4f6',
-        borderRadius: '8px',
-      }}>
-        <span style={{
-          fontFamily: 'monospace',
-          fontSize: '2rem',
-          fontWeight: '700',
-          color: timeRemaining <= 60 ? '#ef4444' : '#111827',
-        }}>
-          {minutes}:{seconds.toString().padStart(2, '0')}
-        </span>
-        <span style={{
-          display: 'block',
-          fontSize: '0.8rem',
-          color: '#6b7280',
-          marginTop: '0.25rem',
-        }}>
-          {timeRemaining <= 60 ? 'Time is running out!' : 'Examination phase'}
-        </span>
-      </div>
-
-      {/* Instruction */}
-      <div style={{
-        backgroundColor: '#f0f9ff',
-        border: '1px solid #bae6fd',
-        borderRadius: '8px',
-        padding: '1.25rem',
-        color: '#075985',
-        fontSize: '0.925rem',
-        lineHeight: '1.6',
-      }}>
-        <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Examination Phase Instructions:</strong>
-        {`The brief above tells you what brought the patient in. Now take a history and perform your examination as you would in a real PACES station. Make note of the key signs, differentials, and investigations you would pursue. Present your findings to the examiner when ready.`}
-      </div>
-
-      {/* Clinical History Only — what candidate would have from talking to patient */}
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '8px',
-        border: '1px solid #e5e7eb',
-        padding: '1.5rem',
-      }}>
-        <h4 style={{ margin: '0 0 1rem 0', color: '#1f2937' }}>Patient History</h4>
-        <p style={{ margin: 0, color: '#4b5563', fontSize: '0.9rem', lineHeight: '1.5' }}>{caseData.clinicalData.history}</p>
-      </div>
-
-      {/* Audio Clips — for clinical signs the candidate would hear */}
-      {caseData.clinicalData.audioClips.length > 0 && (
-        <div>
-          <h4 style={{ margin: '0 0 1rem 0', color: '#1f2937', fontSize: '1rem' }}>Presenting Signs</h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {caseData.clinicalData.audioClips.map((clip, i) => (
-              <div key={i} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                padding: '0.5rem 0.75rem',
-                backgroundColor: '#f9fafb',
-                borderRadius: '6px',
-              }}>
-                <span style={{ fontSize: '1.2rem' }}>🔊</span>
-                <span style={{ flex: 1, fontSize: '0.875rem', color: '#374151' }}>{clip.label}</span>
-              </div>
-            ))}
-          </div>
+    <div style={{ maxWidth: '700px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1rem', height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+      {/* Timer + History */}
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ textAlign: 'center', padding: '0.75rem 1.25rem', backgroundColor: timeRemaining <= 60 ? '#fee2e2' : '#f3f4f6', borderRadius: '8px', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'monospace', fontSize: '1.5rem', fontWeight: '700', color: timeRemaining <= 60 ? '#ef4444' : '#111827' }}>
+            {minutes}:{seconds.toString().padStart(2, '0')}
+          </span>
         </div>
-      )}
+        <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '0.75rem 1rem', color: '#075985', fontSize: '0.85rem', lineHeight: '1.5', flex: 1 }}>
+          <strong>Brief: </strong>
+          {caseData.brief}
+        </div>
+      </div>
 
-      <button
-        onClick={onComplete}
-        style={{
-          backgroundColor: '#3b82f6',
-          color: '#ffffff',
-          border: 'none',
-          padding: '0.75rem 2rem',
-          borderRadius: '6px',
-          cursor: 'pointer',
-          fontWeight: '600',
-          fontSize: '1rem',
-          alignSelf: 'center',
-        }}
-      >
-        Proceed to Presentation →
-      </button>
+      {/* Chat Messages */}
+      <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+        {messages.length === 0 && (
+          <div style={{ textAlign: 'center', color: '#9ca3af', fontSize: '0.9rem', padding: '3rem 1rem' }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontWeight: '600', color: '#6b7280' }}>
+              Talk through your examination
+            </p>
+            <p style={{ margin: 0, fontSize: '0.85rem' }}>
+              Describe what you would examine (e.g. &ldquo;I&apos;ll inspect the hands&rdquo;)
+            </p>
+          </div>
+        )}
+        {messages.map((msg, i) => (
+          <div key={i} style={{
+            alignSelf: msg.role === 'candidate' ? 'flex-end' : 'flex-start',
+            backgroundColor: msg.role === 'candidate' ? '#3b82f6' : '#ffffff',
+            color: msg.role === 'candidate' ? '#ffffff' : '#1f2937',
+            padding: '0.6rem 1rem',
+            borderRadius: '12px',
+            borderBottomRightRadius: msg.role === 'candidate' ? '4px' : '12px',
+            borderBottomLeftRadius: msg.role === 'candidate' ? '12px' : '4px',
+            maxWidth: '80%',
+            fontSize: '0.9rem',
+            lineHeight: '1.5',
+            boxShadow: msg.role === 'patient' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+          }}>
+            {msg.content}
+          </div>
+        ))}
+        {examLoading && (
+          <div style={{ alignSelf: 'flex-start', backgroundColor: '#ffffff', padding: '0.6rem 1rem', borderRadius: '12px', borderBottomLeftRadius: '4px', fontSize: '0.9rem', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', color: '#6b7280' }}>
+            <span style={{ animation: 'pulse 1.5s infinite' }}>Listening...</span>
+          </div>
+        )}
+        <div ref={chatEndRef} />
+      </div>
+
+      {/* Input Area */}
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Describe your next examination step..."
+          disabled={examLoading}
+          style={{
+            flex: 1,
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            border: '1px solid #d1d5db',
+            fontSize: '0.9rem',
+            outline: 'none',
+          }}
+        />
+        <button
+          onClick={handleSend}
+          disabled={examLoading || !input.trim()}
+          style={{
+            backgroundColor: '#3b82f6',
+            color: '#ffffff',
+            border: 'none',
+            padding: '0.75rem 1.25rem',
+            borderRadius: '8px',
+            cursor: examLoading ? 'not-allowed' : 'pointer',
+            fontWeight: '600',
+            fontSize: '0.9rem',
+            opacity: examLoading ? 0.6 : 1,
+          }}
+        >
+          Examine
+        </button>
+        <button
+          onClick={onComplete}
+          disabled={examLoading}
+          style={{
+            backgroundColor: '#059669',
+            color: '#ffffff',
+            border: 'none',
+            padding: '0.75rem 1.25rem',
+            borderRadius: '8px',
+            cursor: examLoading ? 'not-allowed' : 'pointer',
+            fontWeight: '600',
+            fontSize: '0.9rem',
+            opacity: examLoading ? 0.6 : 1,
+          }}
+        >
+          Present &rarr;
+        </button>
+      </div>
     </div>
   );
 }
-
 // ─── Main AI Examiner Component ───────────────────────────────────
 
 export const AIExaminer: React.FC = () => {
