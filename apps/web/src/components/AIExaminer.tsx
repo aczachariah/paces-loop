@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { CaseDefinition, ExaminerMessage } from '@paces/shared';
 import { allCases, getCasesBySystem } from '@paces/shared';
 import { CaseBrief } from './CaseBrief';
@@ -281,8 +281,10 @@ export const AIExaminer: React.FC = () => {
   const [conversation, setConversation] = useState<ExaminerMessage[]>([]);
   const [examinerFeedback, setExaminerFeedback] = useState<ExaminerFeedback | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
   const [examTimeRemaining, setExamTimeRemaining] = useState(9 * 60); // 9 minutes
   const [askedVivaQuestions, setAskedVivaQuestions] = useState<string[]>([]);
+  const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSelectCase = useCallback((c: CaseDefinition) => {
     setCurrentCase(c);
@@ -316,13 +318,34 @@ export const AIExaminer: React.FC = () => {
     setPhase('presenting');
   }, []);
 
+  const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 25000) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId));
+  };
+
+  const startLoadingTimer = useCallback(() => {
+    setLoadingTimedOut(false);
+    if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+    loadingTimerRef.current = setTimeout(() => setLoadingTimedOut(true), 12000);
+  }, []);
+
+  const clearLoadingTimer = useCallback(() => {
+    if (loadingTimerRef.current) {
+      clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = null;
+    }
+    setLoadingTimedOut(false);
+  }, []);
+
   const handlePresentationSubmit = useCallback(async (text: string) => {
     if (!currentCase) return;
     setLoading(true);
     setPhase('loading');
+    startLoadingTimer();
 
     try {
-      const response = await fetch('/api/examine', {
+      const response = await fetchWithTimeout('/api/examine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -336,6 +359,8 @@ export const AIExaminer: React.FC = () => {
 
       const data = await response.json();
 
+      clearLoadingTimer();
+
       // Add examiner's response to conversation
       setConversation([
         { role: 'candidate', content: text },
@@ -345,20 +370,25 @@ export const AIExaminer: React.FC = () => {
       // Transition to viva
       setPhase('viva');
     } catch (err) {
+      clearLoadingTimer();
       console.error('Presentation error:', err);
+      const errorMsg = (err as any)?.name === 'AbortError'
+        ? 'The examiner is taking longer than expected. Please try again.'
+        : 'I apologise, there was an error processing your presentation. Please try again.';
       setConversation([
         { role: 'candidate', content: text },
-        { role: 'examiner', content: 'I apologise, there was an error processing your presentation. Please try again.' },
+        { role: 'examiner', content: errorMsg },
       ] as ExaminerMessage[]);
       setPhase('presenting');
     } finally {
       setLoading(false);
     }
-  }, [currentCase]);
+  }, [currentCase, startLoadingTimer, clearLoadingTimer]);
 
   const handleVivaMessage = useCallback(async (text: string) => {
     if (!currentCase) return;
     setLoading(true);
+    startLoadingTimer();
 
     try {
       // Add candidate's answer to conversation
@@ -368,7 +398,7 @@ export const AIExaminer: React.FC = () => {
       ];
       setConversation(updatedConversation);
 
-      const response = await fetch('/api/examine', {
+      const response = await fetchWithTimeout('/api/examine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -381,6 +411,8 @@ export const AIExaminer: React.FC = () => {
       });
 
       const data = await response.json();
+
+      clearLoadingTimer();
 
       if (data.complete && data.feedback) {
         // Viva is complete — show feedback
@@ -404,16 +436,20 @@ export const AIExaminer: React.FC = () => {
         setConversation(newConvo);
       }
     } catch (err) {
+      clearLoadingTimer();
       console.error('Viva error:', err);
+      const errorMsg = (err as any)?.name === 'AbortError'
+        ? 'The examiner is taking longer than expected. Please try again.'
+        : 'I apologise, there was an error. Please try again.';
       setConversation([
         ...conversation,
         { role: 'candidate', content: text },
-        { role: 'examiner', content: 'I apologise, there was an error. Please try again.' },
+        { role: 'examiner', content: errorMsg },
       ]);
     } finally {
       setLoading(false);
     }
-  }, [currentCase, conversation, askedVivaQuestions]);
+  }, [currentCase, conversation, askedVivaQuestions, startLoadingTimer, clearLoadingTimer]);
 
   const handleTryAnother = useCallback(() => {
     if ((window as any).__examTimer) {
@@ -490,8 +526,13 @@ export const AIExaminer: React.FC = () => {
           }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
-            The examiner is reviewing your response...
+            {loadingTimedOut ? 'The examiner is taking longer than expected...' : 'The examiner is reviewing your response...'}
           </p>
+          {loadingTimedOut && (
+            <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+              This can happen on the first request. You'll be returned to the previous step shortly.
+            </p>
+          )}
         </div>
       )}
 
