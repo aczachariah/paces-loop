@@ -28,12 +28,9 @@ const MODEL = 'deepseek-v4-flash-0731';
 const VIVA_QUESTIONS = [
   "Thank you for your presentation. Tell me, what other clinical signs would you look for to support your diagnosis?",
   "What is your differential diagnosis, and why have you chosen this order of likelihood?",
-  "What is the most likely underlying cause in this patient's case?",
   "What investigations would you arrange, and what would you expect them to show?",
   "How would you manage this patient? Include both immediate and long-term management.",
-  "Are there any red flags in this case that would change your management?",
-  "What complications should you be aware of with this condition?",
-  "If initial investigations were normal, what would be your next step?",
+  "Are there any red flags or complications to consider with this condition?",
 ];
 
 // ─── Prompt Builders ──────────────────────────────────────────────
@@ -217,8 +214,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const aiResponse = await callEngyAPI(messages);
 
-      if (questionIndex >= VIVA_QUESTIONS.length) {
-        // All questions asked — move to feedback
+      const isComplete = questionIndex >= VIVA_QUESTIONS.length ||
+        /viva (is )?complete|all questions|moving on to feedback|let me give you feedback|overall score/i.test(aiResponse);
+
+      if (isComplete) {
+        // Viva done — generate structured feedback
         const allMessages = [
           { role: 'system' as const, content: systemPrompt },
           { role: 'user' as const, content: `The candidate's viva is now complete. Provide structured PACES feedback covering: presentation quality, key signs identified vs missed, differential diagnosis reasoning, viva performance, overall score out of 10, and 2-3 actionable improvements.` },
