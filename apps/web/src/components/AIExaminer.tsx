@@ -118,7 +118,6 @@ function ExaminingPhase({
   timeRemaining: number;
   onComplete: () => void;
 }) {
-  const [showFindings, setShowFindings] = useState(false);
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
 
@@ -166,92 +165,41 @@ function ExaminingPhase({
         lineHeight: '1.6',
       }}>
         <strong style={{ display: 'block', marginBottom: '0.5rem' }}>Examination Phase Instructions:</strong>
-        {`Examine the patient or review the clinical findings below. Make note of the history, key signs, and differentials you will present to the examiner.`}
+        {`The brief above tells you what brought the patient in. Now take a history and perform your examination as you would in a real PACES station. Make note of the key signs, differentials, and investigations you would pursue. Present your findings to the examiner when ready.`}
       </div>
 
-      {/* Toggle Findings */}
-      <div>
-        <button
-          onClick={() => setShowFindings(!showFindings)}
-          style={{
-            backgroundColor: showFindings ? '#f3f4f6' : '#ffffff',
-            color: '#374151',
-            border: '1px solid #d1d5db',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '0.875rem',
-            marginBottom: '0.75rem',
-          }}
-        >
-          {showFindings ? 'Hide Clinical Data' : 'Show Clinical Data'}
-        </button>
+      {/* Clinical History Only — what candidate would have from talking to patient */}
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '8px',
+        border: '1px solid #e5e7eb',
+        padding: '1.5rem',
+      }}>
+        <h4 style={{ margin: '0 0 1rem 0', color: '#1f2937' }}>Patient History</h4>
+        <p style={{ margin: 0, color: '#4b5563', fontSize: '0.9rem', lineHeight: '1.5' }}>{caseData.clinicalData.history}</p>
+      </div>
 
-        {showFindings && (
-          <div style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '8px',
-            border: '1px solid #e5e7eb',
-            padding: '1.5rem',
-          }}>
-            <h4 style={{ margin: '0 0 1rem 0', color: '#1f2937' }}>Clinical Data</h4>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <strong style={{ display: 'block', marginBottom: '0.3rem', color: '#374151', fontSize: '0.85rem' }}>History</strong>
-              <p style={{ margin: 0, color: '#4b5563', fontSize: '0.9rem', lineHeight: '1.5' }}>{caseData.clinicalData.history}</p>
-            </div>
-
-            <div style={{ marginBottom: '1rem' }}>
-              <strong style={{ display: 'block', marginBottom: '0.3rem', color: '#374151', fontSize: '0.85rem' }}>Examination Findings</strong>
-              <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#4b5563', fontSize: '0.9rem', lineHeight: '1.6' }}>
-                {caseData.clinicalData.examFindings.map((f, i) => (
-                  <li key={i}>{f}</li>
-                ))}
-              </ul>
-            </div>
-
-            {caseData.clinicalData.investigations.length > 0 && (
-              <div style={{ marginBottom: '1rem' }}>
-                <strong style={{ display: 'block', marginBottom: '0.3rem', color: '#374151', fontSize: '0.85rem' }}>Investigations</strong>
-                <ul style={{ margin: 0, paddingLeft: '1.25rem', color: '#4b5563', fontSize: '0.9rem', lineHeight: '1.6' }}>
-                  {caseData.clinicalData.investigations.map((inv, i) => (
-                    <li key={i}>{inv}</li>
-                  ))}
-                </ul>
+      {/* Audio Clips — for clinical signs the candidate would hear */}
+      {caseData.clinicalData.audioClips.length > 0 && (
+        <div>
+          <h4 style={{ margin: '0 0 1rem 0', color: '#1f2937', fontSize: '1rem' }}>Presenting Signs</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {caseData.clinicalData.audioClips.map((clip, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '0.5rem 0.75rem',
+                backgroundColor: '#f9fafb',
+                borderRadius: '6px',
+              }}>
+                <span style={{ fontSize: '1.2rem' }}>🔊</span>
+                <span style={{ flex: 1, fontSize: '0.875rem', color: '#374151' }}>{clip.label}</span>
               </div>
-            )}
-
-            {caseData.clinicalData.audioClips.length > 0 && (
-              <div>
-                <strong style={{ display: 'block', marginBottom: '0.3rem', color: '#374151', fontSize: '0.85rem' }}>Clinical Signs Audio</strong>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {caseData.clinicalData.audioClips.map((clip, i) => (
-                    <div key={i} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      padding: '0.5rem 0.75rem',
-                      backgroundColor: '#f9fafb',
-                      borderRadius: '6px',
-                    }}>
-                      <span style={{ fontSize: '1.2rem' }}>🔊</span>
-                      <span style={{ flex: 1, fontSize: '0.875rem', color: '#374151' }}>{clip.label}</span>
-                      <span style={{
-                        fontSize: '0.75rem',
-                        color: '#9ca3af',
-                        fontStyle: 'italic',
-                      }}>
-                        (Coming soon)
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <button
         onClick={onComplete}
