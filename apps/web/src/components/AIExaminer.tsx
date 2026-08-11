@@ -349,7 +349,7 @@ export const AIExaminer: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          case: currentCase,
+          caseId: currentCase.id,
           phase: 'present',
           userInput: text,
           conversationHistory: [],
@@ -402,7 +402,7 @@ export const AIExaminer: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          case: currentCase,
+          caseId: currentCase.id,
           phase: 'viva',
           userInput: text,
           conversationHistory: updatedConversation,
@@ -514,25 +514,47 @@ export const AIExaminer: React.FC = () => {
         <div style={{
           textAlign: 'center',
           padding: '4rem 2rem',
+          maxWidth: '500px',
+          margin: '0 auto',
         }}>
           <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #e5e7eb',
-            borderTopColor: '#3b82f6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 1.5rem',
-          }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          <p style={{ color: '#6b7280', fontSize: '1.1rem' }}>
-            {loadingTimedOut ? 'The examiner is taking longer than expected...' : 'The examiner is reviewing your response...'}
+            display: 'flex',
+            gap: '0.5rem',
+            justifyContent: 'center',
+            marginBottom: '1.5rem',
+          }}>
+            {[0, 0.15, 0.3].map((delay, i) => (
+              <div key={i} style={{
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                backgroundColor: '#3b82f6',
+                animation: `bounce 1.4s ${delay}s ease-in-out infinite`,
+              }} />
+            ))}
+          </div>
+          <style>{`
+            @keyframes bounce {
+              0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+              40% { transform: scale(1); opacity: 1; }
+            }
+          `}</style>
+          <p style={{
+            color: '#374151',
+            fontSize: '1.05rem',
+            fontWeight: '500',
+            marginBottom: '0.5rem',
+          }}>
+            The examiner is considering your response
           </p>
-          {loadingTimedOut && (
-            <p style={{ color: '#9ca3af', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-              This can happen on the first request. You'll be returned to the previous step shortly.
-            </p>
-          )}
+          <p style={{
+            color: '#9ca3af',
+            fontSize: '0.85rem',
+          }}>
+            {loadingTimedOut
+              ? 'Taking a bit longer than usual — you\'ll be returned shortly'
+              : 'This mimics the real PACES pause while the examiner reflects'}
+          </p>
         </div>
       )}
 

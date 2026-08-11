@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { CaseDefinition, ExaminerMessage, ExaminerFeedback } from '@paces/shared';
+import { allCases } from '@paces/shared';
+
+// ─── Server-side case cache ───────────────────────────────────────
+const caseCache = new Map<string, CaseDefinition>();
+for (const c of allCases) {
+  caseCache.set(c.id, c);
+}
 
 // ─── Types for this route ─────────────────────────────────────────
 
 interface ExamineRequest {
-  case: CaseDefinition;
+  caseId: string;
   phase: 'present' | 'viva' | 'feedback';
   userInput: string;
   conversationHistory: ExaminerMessage[];
@@ -142,12 +149,20 @@ function parseFeedback(aiResponse: string): ExaminerFeedback {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body: ExamineRequest = await request.json();
-    const { case: caseData, phase, userInput, conversationHistory = [], askedQuestions = [] } = body;
+    const { caseId, phase, userInput, conversationHistory = [], askedQuestions = [] } = body;
 
     if (!API_KEY) {
       return NextResponse.json(
         { error: 'API key not configured' },
         { status: 500 }
+      );
+    }
+
+    const caseData = caseCache.get(caseId);
+    if (!caseData) {
+      return NextResponse.json(
+        { error: `Case not found: ${caseId}` },
+        { status: 400 }
       );
     }
 
