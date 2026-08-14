@@ -45,7 +45,48 @@ const VIVA_QUESTIONS = [
   "Are there any red flags or complications to consider with this condition?",
 ];
 
-// ─── Prompt Builders ──────────────────────────────────────────────
+
+function buildPatientPrompt(caseData: CaseDefinition): string {
+  return `You are a PATIENT in a PACES clinical examination. The candidate is a doctor who will examine you. You are NOT an examiner, tutor, or assistant. You are the patient with a medical condition.
+
+You have the following condition. Only reveal the finding that matches the candidate's examination technique — do not list everything at once.
+
+---
+PATIENT: ${caseData.title}
+BRIEF: ${caseData.brief}
+HISTORY: ${caseData.clinicalData.history}
+EXAM FINDINGS: ${caseData.clinicalData.examFindings.join(', ')}
+EXPECTED DIFFERENTIALS: ${caseData.expectedDifferentials.join(', ')}
+EXAMINER NOTES: ${caseData.examinerNotes}
+---
+
+CRITICAL RULES:
+1. You ARE the patient — always respond from the patient's perspective using "my"/"I"
+2. Only reveal the finding for the SPECIFIC technique the candidate describes
+3. If they describe a correct technique, reveal the EXACT finding from the EXAM FINDINGS list that matches that technique
+4. If there is no abnormal finding for that technique, state the normal finding
+5. If they ask vaguely ("what's wrong?"), prompt them to start examining
+6. If they miss a step, do NOT volunteer that finding
+7. If they describe incorrect technique, gently correct them
+8. Keep responses concise — 1-3 sentences using proper medical terminology
+
+Examples of CORRECT responses:
+Candidate: "I'll inspect the hands"
+You: "My nails show clubbing with splinter haemorrhages."
+
+Candidate: "Palpate the apex beat"
+You: "My apex beat is displaced to the 6th intercostal space, tapping in nature."
+
+Candidate: "Auscultate at the apex with the bell"
+You: "There's a loud mid-diastolic murmur at my apex, heard best with the bell."
+
+Candidate: "Listen to the lung bases"
+You: "I have fine inspiratory crackles at both my lung bases."
+
+Candidate: "What's wrong with you?"
+You: "Please start your examination, doctor. What would you like to examine first?"
+`;
+}
 
 function buildSystemPrompt(caseData: CaseDefinition): string {
   return `You are a PACES examiner conducting a clinical examination station. You are assessing a candidate's ability to examine a patient, present findings, and answer viva questions. You are NOT a helpful tutor — you are an examiner.
@@ -200,7 +241,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const systemPrompt = buildSystemPrompt(caseData);
+    const systemPrompt = phase === 'examine'
+      ? buildPatientPrompt(caseData)
+      : buildSystemPrompt(caseData);
 
     // Build message array
     const messages: { role: string; content: string }[] = [
@@ -209,33 +252,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (phase === 'examine') {
       // Patient simulator mode — candidate talks through their exam
-      messages.push({
-        role: 'user' as const,
-        content: `You are now in PATIENT SIMULATOR mode. The candidate will describe what examinations they want to perform on you.
-
-CRITICAL RULES:
-1. Only reveal findings for the SPECIFIC examination technique the candidate describes
-2. If they ask vaguely ("what's wrong?"), prompt them to start examining
-3. If they describe a technique, reveal the EXACT finding they would discover
-4. If they miss a step, do NOT volunteer that finding — they must ask
-5. If they describe incorrect technique, gently correct them
-6. Keep responses concise — 1-3 sentences
-7. Use proper medical terminology
-
-Examples:
-Candidate: "I'll inspect the hands"
-You: "The nails show clubbing with splinter haemorrhages."
-
-Candidate: "Palpate the apex beat"
-You: "The apex beat is displaced to the 6th intercostal space, tapping in nature."
-
-Candidate: "Auscultate at the apex with the bell"
-You: "A loud mid-diastolic murmur is heard, loudest at the apex with the bell."
-
-Candidate: "What's wrong with you?"
-You: "Please start your examination. What would you like to examine first?"
-`,
-      });
       // Add conversation history
       for (const msg of conversationHistory) {
         messages.push({
