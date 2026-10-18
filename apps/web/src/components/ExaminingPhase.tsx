@@ -36,6 +36,7 @@ function ExaminingPhase({
   onComplete: () => void;
 }) {
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<{ role: string; content: string }[]>([]);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [examLoading, setExamLoading] = useState(false);
@@ -78,6 +79,9 @@ function ExaminingPhase({
     clearPauseTimer();
     const said = text.trim();
 
+    // Build conversation history from previous findings
+    const history = conversationHistory.map(m => m);
+
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -88,7 +92,7 @@ function ExaminingPhase({
           caseId: caseData.id,
           phase: 'examine',
           userInput: said,
-          conversationHistory: [{ role: 'candidate', content: said }],
+          conversationHistory: history,
           askedQuestions: [],
         }),
         signal: controller.signal,
@@ -118,6 +122,13 @@ function ExaminingPhase({
         }]);
       }
 
+      // Add this turn to conversation history for next API call
+      setConversationHistory(prev => [
+        ...prev,
+        { role: 'candidate', content: said },
+        { role: 'assistant', content: data.examinerResponse || '' },
+      ]);
+
       // Auto-detect exam completion
       const donePhrases = ['finish', 'complete', 'done', 'finished examining', 'my examination', 'that concludes', 'examination complete', 'finished my exam', 'i have finished'];
       if (donePhrases.some(p => said.toLowerCase().includes(p))) {
@@ -136,7 +147,7 @@ function ExaminingPhase({
       setInterimTranscript('');
       setExamLoading(false);
     }
-  }, [caseData.id, examLoading, onComplete]);
+  }, [caseData.id, examLoading, onComplete, conversationHistory]);
 
   const schedulePauseSubmit = useCallback(() => {
     clearPauseTimer();
