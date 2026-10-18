@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 
 interface Finding {
+  said: string;
   finding: string | null;
   bodyPart: string | null;
   technique: 'inspection' | 'palpation' | 'percussion' | 'auscultation' | 'general';
@@ -205,6 +206,7 @@ function ExaminingPhase({
       if (data.finding) {
         const f = data.finding;
         setFindings(prev => [...prev, {
+          said,
           finding: f.finding || null,
           bodyPart: f.bodyPart || null,
           technique: f.technique || 'general',
@@ -214,6 +216,7 @@ function ExaminingPhase({
       } else {
         const text = data.examinerResponse || '';
         setFindings(prev => [...prev, {
+          said,
           finding: text,
           bodyPart: null,
           technique: 'general',
@@ -236,6 +239,7 @@ function ExaminingPhase({
       }
     } catch {
       setFindings(prev => [...prev, {
+        said,
         finding: null,
         bodyPart: null,
         technique: 'general',
@@ -439,6 +443,13 @@ function ExaminingPhase({
                     border: `1px solid ${f.normal ? '#d1d5db' : '#e5e7eb'}`,
                     padding: '0.75rem 1rem',
                   }}>
+                    {/* Spoken text — what the candidate said */}
+                    <div style={{
+                      fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.4rem',
+                      fontStyle: 'italic',
+                    }}>
+                      "{f.said}"
+                    </div>
                     {/* Technique badge + body part */}
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
                       {techLabel && (
