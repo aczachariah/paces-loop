@@ -10,6 +10,24 @@ interface Finding {
   correction: string | null;
 }
 
+interface SystemStatus {
+  id: string;
+  label: string;
+  icon: string;
+  bodyParts: string[];
+  status: 'unexamined' | 'normal' | 'abnormal';
+  findingCount: number;
+}
+
+const SYSTEM_DEFS: SystemStatus[] = [
+  { id: 'hands', label: 'Hands & Arms', icon: '🤲', bodyParts: ['hands', 'fingers', 'nails', 'arms', 'radial artery', 'radial pulse', 'blood pressure'], status: 'unexamined', findingCount: 0 },
+  { id: 'face', label: 'Face & Neck', icon: '👁️', bodyParts: ['face', 'eyes', 'mouth', 'neck', 'jvp', 'jugular', 'carotid', 'thyroid', 'lymph nodes'], status: 'unexamined', findingCount: 0 },
+  { id: 'chest', label: 'Chest', icon: '🫁', bodyParts: ['chest', 'precordium', 'heart', 'lung', 'lungs', 'lung bases', 'apex beat', 'auscultation'], status: 'unexamined', findingCount: 0 },
+  { id: 'abdo', label: 'Abdomen', icon: '🩺', bodyParts: ['abdomen', 'abdo', 'liver', 'spleen', 'kidney', 'bowel', 'hernia'], status: 'unexamined', findingCount: 0 },
+  { id: 'legs', label: 'Legs & Feet', icon: '🦶', bodyParts: ['legs', 'feet', 'ankles', 'oedema', 'pulse', 'popliteal', 'femoral'], status: 'unexamined', findingCount: 0 },
+  { id: 'neuro', label: 'Neurological', icon: '🧠', bodyParts: ['neuro', 'cranial', 'reflex', 'sensation', 'motor', 'cerebellar', 'gait'], status: 'unexamined', findingCount: 0 },
+];
+
 const TECHNIQUE_LABELS: Record<string, string> = {
   inspection: 'Inspection',
   palpation: 'Palpation',
@@ -25,6 +43,60 @@ const TECHNIQUE_COLORS: Record<string, string> = {
   auscultation: '#ef4444',
   general: '#6b7280',
 };
+
+// Map body part → system ID
+function getSystemForBodyPart(bodyPart: string | null): string | null {
+  if (!bodyPart) return null;
+  const lower = bodyPart.toLowerCase();
+  for (const sys of SYSTEM_DEFS) {
+    if (sys.bodyParts.some(bp => lower.includes(bp))) return sys.id;
+  }
+  // Fallback by keywords
+  if (/hand|finger|nail|arm|radial/.test(lower)) return 'hands';
+  if (/face|eye|mouth|neck|jvp|jugular|carotid/.test(lower)) return 'face';
+  if (/chest|precordium|heart|lung|breath|respirat/.test(lower)) return 'chest';
+  if (/abdo|liver|spleen|bowel|hernia|kidney/.test(lower)) return 'abdo';
+  if (/leg|foot|ankle|oedema|pulse|femoral|popliteal/.test(lower)) return 'legs';
+  if (/neuro|cranial|reflex|sensation|motor|cerebellar|gait/.test(lower)) return 'neuro';
+  return null;
+}
+
+// Simple SVG body diagram
+function BodyDiagram({ systems }: { systems: SystemStatus[] }) {
+  const getColor = (id: string) => {
+    const sys = systems.find(s => s.id === id);
+    if (!sys || sys.status === 'unexamined') return '#e5e7eb';
+    if (sys.status === 'abnormal') return '#ef4444';
+    return '#10b981';
+  };
+  const getOpacity = (id: string) => {
+    const sys = systems.find(s => s.id === id);
+    if (!sys || sys.status === 'unexamined') return 0.5;
+    return 1;
+  };
+
+  return (
+    <svg viewBox="0 0 120 280" style={{ width: '100%', maxWidth: '100px', height: 'auto' }}>
+      {/* Head */}
+      <circle cx="60" cy="22" r="18" fill={getColor('face')} opacity={getOpacity('face')} stroke="#9ca3af" strokeWidth="1" />
+      {/* Neck */}
+      <rect x="52" y="38" width="16" height="10" rx="3" fill={getColor('face')} opacity={getOpacity('face')} stroke="#9ca3af" strokeWidth="1" />
+      {/* Hands/Arms */}
+      <rect x="18" y="50" width="12" height="55" rx="5" fill={getColor('hands')} opacity={getOpacity('hands')} stroke="#9ca3af" strokeWidth="1" />
+      <rect x="90" y="50" width="12" height="55" rx="5" fill={getColor('hands')} opacity={getOpacity('hands')} stroke="#9ca3af" strokeWidth="1" />
+      {/* Chest */}
+      <rect x="40" y="48" width="40" height="50" rx="8" fill={getColor('chest')} opacity={getOpacity('chest')} stroke="#9ca3af" strokeWidth="1" />
+      {/* Abdomen */}
+      <rect x="40" y="98" width="40" height="45" rx="8" fill={getColor('abdo')} opacity={getOpacity('abdo')} stroke="#9ca3af" strokeWidth="1" />
+      {/* Legs */}
+      <rect x="40" y="143" width="16" height="70" rx="6" fill={getColor('legs')} opacity={getOpacity('legs')} stroke="#9ca3af" strokeWidth="1" />
+      <rect x="64" y="143" width="16" height="70" rx="6" fill={getColor('legs')} opacity={getOpacity('legs')} stroke="#9ca3af" strokeWidth="1" />
+      {/* Feet */}
+      <rect x="36" y="213" width="24" height="8" rx="4" fill={getColor('legs')} opacity={getOpacity('legs')} stroke="#9ca3af" strokeWidth="1" />
+      <rect x="60" y="213" width="24" height="8" rx="4" fill={getColor('legs')} opacity={getOpacity('legs')} stroke="#9ca3af" strokeWidth="1" />
+    </svg>
+  );
+}
 
 function ExaminingPhase({
   caseData,
@@ -45,16 +117,31 @@ function ExaminingPhase({
   const recognitionRef = useRef<any>(null);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isListeningRef = useRef(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const findingsEndRef = useRef<HTMLDivElement>(null);
 
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
+
+  // Derive system statuses from findings
+  const systems = SYSTEM_DEFS.map(sys => {
+    const relevant = findings.filter(f => {
+      const mappedSys = getSystemForBodyPart(f.bodyPart);
+      return mappedSys === sys.id;
+    });
+    const hasAbnormal = relevant.some(f => f.finding && !f.normal);
+    return {
+      ...sys,
+      findingCount: relevant.length,
+      status: relevant.length === 0 ? 'unexamined' as const : hasAbnormal ? 'abnormal' as const : 'normal' as const,
+    };
+  });
+
   const allFindings = findings;
   const hasFindings = allFindings.length > 0;
 
-  // Auto-scroll
+  // Auto-scroll findings
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    findingsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [findings]);
 
   useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
@@ -78,8 +165,6 @@ function ExaminingPhase({
     setExamLoading(true);
     clearPauseTimer();
     const said = text.trim();
-
-    // Build conversation history from previous findings
     const history = conversationHistory.map(m => m);
 
     try {
@@ -100,7 +185,6 @@ function ExaminingPhase({
       clearTimeout(timeoutId);
       const data = await res.json();
 
-      // Use structured finding from API if available
       if (data.finding) {
         const f = data.finding;
         setFindings(prev => [...prev, {
@@ -111,7 +195,6 @@ function ExaminingPhase({
           correction: f.correction || null,
         }]);
       } else {
-        // Fallback — parse from raw text
         const text = data.examinerResponse || '';
         setFindings(prev => [...prev, {
           finding: text,
@@ -122,14 +205,12 @@ function ExaminingPhase({
         }]);
       }
 
-      // Add this turn to conversation history for next API call
       setConversationHistory(prev => [
         ...prev,
         { role: 'candidate', content: said },
         { role: 'assistant', content: data.examinerResponse || '' },
       ]);
 
-      // Auto-detect exam completion
       const donePhrases = ['finish', 'complete', 'done', 'finished examining', 'my examination', 'that concludes', 'examination complete', 'finished my exam', 'i have finished'];
       if (donePhrases.some(p => said.toLowerCase().includes(p))) {
         onComplete();
@@ -242,7 +323,7 @@ function ExaminingPhase({
   const timerBg = timeRemaining <= 60 ? '#fee2e2' : timeRemaining <= 180 ? '#fef3c7' : '#f3f4f6';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '100%' }}>
       {/* Top bar: timer + brief */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
         <div style={{
@@ -262,108 +343,145 @@ function ExaminingPhase({
         </div>
       </div>
 
-      {/* Findings panel */}
-      <div style={{
-        flex: 1, overflowY: 'auto', backgroundColor: '#f9fafb',
-        borderRadius: '8px', border: '1px solid #e5e7eb', padding: '1rem',
-      }}>
-        {!hasFindings && (
-          <div style={{ textAlign: 'center', color: '#9ca3af', padding: '3rem 1rem' }}>
-            <p style={{ fontWeight: '600', color: '#6b7280', margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>
-              Examine the patient
-            </p>
-            <p style={{ margin: 0, fontSize: '0.9rem' }}>
-              Click the mic and speak your examination steps aloud.
-            </p>
+      {/* Main content: body map + checklist + findings */}
+      <div style={{ display: 'flex', gap: '0.75rem', flex: 1, minHeight: 0 }}>
+        {/* Left sidebar: body map + system checklist */}
+        <div style={{
+          width: '120px', flexShrink: 0,
+          display: 'flex', flexDirection: 'column', gap: '0.5rem',
+          overflowY: 'auto',
+        }}>
+          {/* Body diagram */}
+          <div style={{
+            backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb',
+            padding: '0.5rem', display: 'flex', justifyContent: 'center',
+          }}>
+            <BodyDiagram systems={systems} />
           </div>
-        )}
 
-        {hasFindings && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {allFindings.map((f, i) => {
-              const techLabel = f.technique !== 'general' ? TECHNIQUE_LABELS[f.technique] : null;
-              const techColor = f.technique !== 'general' ? TECHNIQUE_COLORS[f.technique] : null;
-
+          {/* System checklist */}
+          <div style={{
+            backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb',
+            padding: '0.5rem',
+          }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.4rem' }}>
+              Systems
+            </div>
+            {systems.map(sys => {
+              let dotColor = '#d1d5db';
+              let labelColor = '#9ca3af';
+              if (sys.status === 'abnormal') { dotColor = '#ef4444'; labelColor = '#111827'; }
+              else if (sys.status === 'normal') { dotColor = '#10b981'; labelColor = '#374151'; }
               return (
-                <div key={i} style={{
-                  backgroundColor: '#ffffff',
-                  borderRadius: '8px',
-                  border: `1px solid ${f.normal ? '#d1d5db' : '#e5e7eb'}`,
-                  padding: '0.75rem 1rem',
+                <div key={sys.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.3rem',
+                  padding: '0.2rem 0', fontSize: '0.75rem',
+                  color: labelColor, lineHeight: '1.3',
                 }}>
-                  {/* Technique badge + body part */}
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
-                    {techLabel && (
-                      <span style={{
-                        fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase',
-                        color: '#ffffff', backgroundColor: techColor || '#6b7280',
-                        padding: '0.15rem 0.5rem', borderRadius: '4px',
-                        letterSpacing: '0.5px',
-                      }}>
-                        {techLabel}
-                      </span>
-                    )}
-                    {f.bodyPart && (
-                      <span style={{
-                        fontSize: '0.75rem', color: '#6b7280',
-                      }}>
-                        {f.bodyPart}
-                      </span>
-                    )}
-                    {f.normal && (
-                      <span style={{
-                        fontSize: '0.7rem', color: '#059669', fontWeight: '600',
-                      }}>
-                        Normal
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Finding text */}
-                  <div style={{
-                    display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
-                  }}>
-                    <span style={{
-                      color: f.normal ? '#9ca3af' : '#059669',
-                      fontSize: '1rem', flexShrink: 0, marginTop: '2px',
-                    }}>
-                      {f.normal ? '○' : '●'}
-                    </span>
-                    <div style={{ color: '#374151', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                      {f.finding || (f.normal ? 'No abnormality detected.' : '')}
-                    </div>
-                  </div>
-
-                  {/* Correction */}
-                  {f.correction && (
-                    <div style={{
-                      marginTop: '0.4rem', padding: '0.35rem 0.5rem',
-                      backgroundColor: '#fef3c7', borderRadius: '4px',
-                      color: '#92400e', fontSize: '0.8rem',
-                    }}>
-                      ⚠ {f.correction}
-                    </div>
-                  )}
+                  <span style={{ color: dotColor, fontSize: '0.6rem', flexShrink: 0 }}>●</span>
+                  <span style={{ flex: 1 }}>{sys.icon} {sys.label}</span>
                 </div>
               );
             })}
           </div>
-        )}
+        </div>
 
-        {examLoading && (
-          <div style={{ textAlign: 'center', padding: '1rem', color: '#6b7280', fontSize: '0.9rem' }}>
-            Examining...
-          </div>
-        )}
-        <div ref={chatEndRef} />
+        {/* Right: findings panel */}
+        <div style={{
+          flex: 1, overflowY: 'auto', backgroundColor: '#f9fafb',
+          borderRadius: '8px', border: '1px solid #e5e7eb', padding: '0.75rem',
+        }}>
+          {!hasFindings && (
+            <div style={{ textAlign: 'center', color: '#9ca3af', padding: '3rem 1rem' }}>
+              <p style={{ fontWeight: '600', color: '#6b7280', margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>
+                Examine the patient
+              </p>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>
+                Click the mic and speak your examination steps aloud.
+              </p>
+            </div>
+          )}
+
+          {hasFindings && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {allFindings.map((f, i) => {
+                const techLabel = f.technique !== 'general' ? TECHNIQUE_LABELS[f.technique] : null;
+                const techColor = f.technique !== 'general' ? TECHNIQUE_COLORS[f.technique] : null;
+
+                return (
+                  <div key={i} style={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '8px',
+                    border: `1px solid ${f.normal ? '#d1d5db' : '#e5e7eb'}`,
+                    padding: '0.75rem 1rem',
+                  }}>
+                    {/* Technique badge + body part */}
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
+                      {techLabel && (
+                        <span style={{
+                          fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase',
+                          color: '#ffffff', backgroundColor: techColor || '#6b7280',
+                          padding: '0.15rem 0.5rem', borderRadius: '4px',
+                          letterSpacing: '0.5px',
+                        }}>
+                          {techLabel}
+                        </span>
+                      )}
+                      {f.bodyPart && (
+                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                          {f.bodyPart}
+                        </span>
+                      )}
+                      {f.normal && (
+                        <span style={{ fontSize: '0.7rem', color: '#059669', fontWeight: '600' }}>
+                          Normal
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Finding text */}
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                      <span style={{
+                        color: f.normal ? '#9ca3af' : '#059669',
+                        fontSize: '1rem', flexShrink: 0, marginTop: '2px',
+                      }}>
+                        {f.normal ? '○' : '●'}
+                      </span>
+                      <div style={{ color: '#374151', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                        {f.finding || (f.normal ? 'No abnormality detected.' : '')}
+                      </div>
+                    </div>
+
+                    {/* Correction */}
+                    {f.correction && (
+                      <div style={{
+                        marginTop: '0.4rem', padding: '0.35rem 0.5rem',
+                        backgroundColor: '#fef3c7', borderRadius: '4px',
+                        color: '#92400e', fontSize: '0.8rem',
+                      }}>
+                        ⚠ {f.correction}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {examLoading && (
+            <div style={{ textAlign: 'center', padding: '1rem', color: '#6b7280', fontSize: '0.9rem' }}>
+              Examining...
+            </div>
+          )}
+          <div ref={findingsEndRef} />
+        </div>
       </div>
 
       {/* Speech error */}
       {speechError && (
         <div style={{
           backgroundColor: '#fef2f2', color: '#991b1b',
-          padding: '0.5rem 0.75rem', borderRadius: '6px',
-          fontSize: '0.85rem',
+          padding: '0.5rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem',
         }}>
           {speechError}
         </div>
@@ -421,8 +539,7 @@ function ExaminingPhase({
             disabled={examLoading || isListening}
             style={{
               flex: 1, padding: '0.6rem 0.75rem', borderRadius: '6px',
-              border: '1px solid #d1d5db', fontSize: '0.9rem',
-              outline: 'none',
+              border: '1px solid #d1d5db', fontSize: '0.9rem', outline: 'none',
               backgroundColor: isListening ? '#f9fafb' : '#ffffff',
             }}
           />
@@ -458,8 +575,7 @@ function ExaminingPhase({
               border: 'none', backgroundColor: '#059669',
               color: '#ffffff', fontWeight: '600', fontSize: '0.9rem',
               cursor: examLoading ? 'not-allowed' : 'pointer',
-              opacity: examLoading ? 0.6 : 1,
-              whiteSpace: 'nowrap',
+              opacity: examLoading ? 0.6 : 1, whiteSpace: 'nowrap',
             }}
           >
             Present →
