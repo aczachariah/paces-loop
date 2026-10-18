@@ -275,10 +275,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Patient simulator mode — candidate talks through their exam
       // Add conversation history
       for (const msg of conversationHistory) {
-        messages.push({
-          role: (msg.role as string) === 'patient' ? 'assistant' : 'user',
-          content: msg.content,
-        });
+        // Only include candidate messages in history to avoid confusing the AI
+        // with previous JSON responses or finding text
+        if (msg.role === 'candidate') {
+          messages.push({
+            role: 'user' as const,
+            content: msg.content,
+          });
+        }
       }
       // Add latest user input
       if (userInput) {
