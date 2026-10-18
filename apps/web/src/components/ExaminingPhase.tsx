@@ -272,24 +272,22 @@ function ExaminingPhase({
     }
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'en-GB';
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: any) => {
-      let finalText = '';
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          finalText += event.results[i][0].transcript + ' ';
-        } else {
-          interim += event.results[i][0].transcript;
-        }
-      }
-      setTranscript(prev => prev + finalText);
-      setInterimTranscript(interim);
-      if (finalText || interim) {
-        schedulePauseSubmit();
+      const said = event.results[0][0].transcript.trim();
+      setTranscript(said);
+      setInterimTranscript('');
+      // Auto-submit after a short pause for final results
+      // (non-continuous means onresult fires once when speech ends)
+      if (said.length > 3 && !examLoading) {
+        // Brief delay so user can see their transcript before it sends
+        setTimeout(() => {
+          sendExamine(said);
+        }, 300);
       }
     };
 
@@ -297,16 +295,16 @@ function ExaminingPhase({
       if (event.error === 'not-allowed') {
         setSpeechError('Microphone access denied. Grant permission and try again.');
       } else if (event.error === 'no-speech') {
-        try { recognition.start(); } catch {}
+        // Silent — user didn't speak, just re-enable mic
+        setIsListening(false);
         return;
       }
       setIsListening(false);
     };
 
     recognition.onend = () => {
-      if (isListeningRef.current) {
-        try { recognition.start(); } catch {}
-      }
+      // Recognition naturally ends after one utterance — good
+      setIsListening(false);
     };
 
     recognitionRef.current = recognition;
@@ -513,15 +511,12 @@ function ExaminingPhase({
             <div style={{ color: '#9ca3af', fontSize: '0.85rem' }}>Processing...</div>
           ) : transcript ? (
             <div style={{ color: '#111827', fontWeight: 500 }}>{transcript}</div>
-          ) : interimTranscript ? (
-            <div style={{ color: '#9ca3af', fontStyle: 'italic' }}>{interimTranscript}</div>
+          ) : isListening ? (
+            <div style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '0.85rem' }}>Listening... speak now</div>
           ) : (
             <div style={{ color: '#9ca3af', fontSize: '0.85rem' }}>
-              {isListening ? 'Listening...' : 'Click the mic and speak'}
+              Tap mic and describe your next examination step
             </div>
-          )}
-          {interimTranscript && (
-            <div style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '0.85rem' }}>{interimTranscript}</div>
           )}
         </div>
 
