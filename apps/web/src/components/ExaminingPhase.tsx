@@ -165,7 +165,18 @@ function ExaminingPhase({
     setExamLoading(true);
     clearPauseTimer();
     const said = text.trim();
-    const history = conversationHistory.map(m => m);
+
+    // Build conversation history from previous turns
+    const history = conversationHistory.map(m => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    // Stop recognition while processing to avoid double-submits
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
 
     try {
       const controller = new AbortController();
@@ -205,10 +216,12 @@ function ExaminingPhase({
         }]);
       }
 
+      // Add this turn to conversation history for next API call — use finding text, not raw JSON
+      const responseText = data.finding?.finding || data.examinerResponse || '';
       setConversationHistory(prev => [
         ...prev,
         { role: 'candidate', content: said },
-        { role: 'assistant', content: data.examinerResponse || '' },
+        { role: 'assistant', content: responseText },
       ]);
 
       const donePhrases = ['finish', 'complete', 'done', 'finished examining', 'my examination', 'that concludes', 'examination complete', 'finished my exam', 'i have finished'];
