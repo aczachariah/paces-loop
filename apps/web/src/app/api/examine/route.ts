@@ -273,19 +273,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     ];
 
     if (phase === 'examine') {
-      // Patient simulator mode — candidate talks through their exam
-      // Add conversation history
-      for (const msg of conversationHistory) {
-        // Only include candidate messages in history to avoid confusing the AI
-        // with previous JSON responses or finding text
-        if (msg.role === 'candidate') {
-          messages.push({
-            role: 'user' as const,
-            content: `The candidate says: ${msg.content}`,
-          });
-        }
-      }
-      // Add latest user input
+      // NO conversation history — each examine call is independent
+      // The system prompt contains all case data the AI needs
+      // Just send the latest user input
+
       if (userInput) {
         messages.push({
           role: 'user' as const,
