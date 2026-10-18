@@ -280,7 +280,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (msg.role === 'candidate') {
           messages.push({
             role: 'user' as const,
-            content: msg.content,
+            content: `The candidate says: ${msg.content}`,
           });
         }
       }
