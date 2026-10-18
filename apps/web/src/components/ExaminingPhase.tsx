@@ -279,7 +279,8 @@ function ExaminingPhase({
     recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: any) => {
-      // Ignore if we've already submitted from this utterance
+      // Only submit on final results, not interim word fragments
+      if (!event.results[0].isFinal) return;
       if (submittedRef.current) return;
       const said = event.results[0][0].transcript.trim();
       if (said.length <= 3) return;
