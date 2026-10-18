@@ -117,6 +117,7 @@ function ExaminingPhase({
   const recognitionRef = useRef<any>(null);
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isListeningRef = useRef(false);
+  const submittedRef = useRef(false);
   const findingsEndRef = useRef<HTMLDivElement>(null);
 
   const minutes = Math.floor(timeRemaining / 60);
@@ -278,17 +279,17 @@ function ExaminingPhase({
     recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: any) => {
+      // Ignore if we've already submitted from this utterance
+      if (submittedRef.current) return;
       const said = event.results[0][0].transcript.trim();
+      if (said.length <= 3) return;
+      // Mark submitted so multiple onresult events don't re-fire
+      submittedRef.current = true;
       setTranscript(said);
       setInterimTranscript('');
-      // Auto-submit after a short pause for final results
-      // (non-continuous means onresult fires once when speech ends)
-      if (said.length > 3 && !examLoading) {
-        // Brief delay so user can see their transcript before it sends
-        setTimeout(() => {
-          sendExamine(said);
-        }, 300);
-      }
+      setTimeout(() => {
+        sendExamine(said);
+      }, 300);
     };
 
     recognition.onerror = (event: any) => {
@@ -308,6 +309,7 @@ function ExaminingPhase({
     };
 
     recognitionRef.current = recognition;
+    submittedRef.current = false;
     try {
       recognition.start();
       setIsListening(true);
