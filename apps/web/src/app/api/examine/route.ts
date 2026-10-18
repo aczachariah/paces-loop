@@ -18,8 +18,17 @@ interface ExamineRequest {
   askedQuestions?: string[];
 }
 
+interface ExamineFindingResult {
+  finding: string | null;
+  bodyPart: string | null;
+  technique: 'inspection' | 'palpation' | 'percussion' | 'auscultation' | 'general';
+  normal: boolean;
+  correction: string | null;
+}
+
 interface ExamineResponse {
   examinerResponse: string;
+  finding?: ExamineFindingResult;
   vivaQuestion?: string;
   feedback?: ExaminerFeedback;
   complete: boolean;
@@ -61,35 +70,35 @@ EXAMINER NOTES: ${caseData.examinerNotes}
 ---
 
 RULES:
-1. Report findings as an examiner would: "You observe clubbing of the nails" (not "my nails")
-2. Only reveal the finding for the SPECIFIC technique the candidate describes
-3. If they describe a correct technique with an abnormal finding, state it precisely
-4. If the finding is normal, state: "No abnormality detected in [body part/technique]."
-5. If they ask vaguely, prompt: "Describe a specific examination technique, please."
-6. If they miss a step, do NOT volunteer that finding
-7. If they describe incorrect technique, gently correct them
-8. Keep responses concise — 1-2 sentences
-9. After each response, the candidate will describe their next step — never ask "what next?"
-10. Never say "doctor" — address them as if they are a colleague
+1. Respond with valid JSON ONLY — no markdown, no explanation, just a JSON object on one line
+2. Format: {"finding": "the finding text or null if normal", "body_part": "affected body area or null", "technique": "inspection|palpation|percussion|auscultation|general", "correction": "if technique wrong, brief correction, otherwise null", "normal": true|false}
+3. If there is an abnormal finding, "normal" must be false and "finding" must describe it
+4. If the finding is normal, state: {"finding": null, "body_part": "body area examined", "technique": "the technique", "normal": true, "correction": null}
+5. If they describe wrong technique, set "correction" and keep "finding" null
+6. Only reveal the finding for the SPECIFIC technique the candidate describes
+7. If they ask vaguely ("what's wrong?"), respond: {"finding": null, "body_part": null, "technique": "general", "normal": false, "correction": "Describe a specific examination technique, please."}
+8. If they miss a step, do NOT volunteer that finding
+9. Never ask "what next?" — the candidate will volunteer the next step
+10. Never say "doctor"
 
 Examples:
 Candidate: "I'll inspect the hands"
-You: "Clubbing of the nails with splinter haemorrhages."
+You: {"finding":"Clubbing of the nails with splinter haemorrhages.","body_part":"hands","technique":"inspection","normal":false,"correction":null}
 
 Candidate: "Palpate the apex beat"
-You: "The apex beat is displaced laterally to the 6th intercostal space, tapping in nature."
+You: {"finding":"The apex beat is displaced laterally to the 6th intercostal space, tapping in nature.","body_part":"precordium","technique":"palpation","normal":false,"correction":null}
 
-Candidate: "Auscultate at the apex with the bell"
-You: "A loud mid-diastolic murmur is heard at the apex, best with the bell."
+Candidate: "Auscultate the lung bases"
+You: {"finding":"Fine inspiratory crackles at both lung bases.","body_part":"lung bases","technique":"auscultation","normal":false,"correction":null}
+
+Candidate: "Listen to the heart"
+You: {"finding":null,"body_part":"heart","technique":"auscultation","normal":true,"correction":null}
 
 Candidate: "What's wrong with you?"
-You: "Describe a specific examination technique, please."
+You: {"finding":null,"body_part":null,"technique":"general","normal":false,"correction":"Describe a specific examination technique, please."}
 
-Candidate: "Check the JVP"
-You: "The JVP is elevated at 8cm."
-
-Candidate: "Feel the liver"
-You: "The liver is palpable 4cm below the costal margin, firm and non-tender."
+Candidate: "Feel the radial pulse"
+You: {"finding":"Radial pulse is regular, 76bpm, normal volume.","body_part":"radial artery","technique":"palpation","normal":true,"correction":null}
 `;
 }
 
@@ -274,8 +283,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       const aiResponse = await callInference(messages);
 
+      // Parse JSON response from AI
+      let structuredFinding: ExamineFindingResult = {
+        finding: aiResponse,
+        bodyPart: null,
+        technique: 'general',
+        normal: false,
+        correction: null,
+      };
+
+      try {
+        const clean = aiResponse
+          .replace(/^```json\s*/i, '')
+          .replace(/\s*```$/i, '')
+          .trim();
+        const parsed = JSON.parse(clean);
+        if (parsed && typeof parsed === 'object') {
+          structuredFinding = {
+            finding: parsed.finding || null,
+            bodyPart: parsed.body_part || null,
+            technique: parsed.technique || 'general',
+            normal: parsed.normal === true,
+            correction: parsed.correction || null,
+          };
+        }
+      } catch {
+        // AI didn't return valid JSON — use raw text as finding
+      }
+
       return NextResponse.json({
         examinerResponse: aiResponse,
+        finding: structuredFinding,
         complete: false,
         askedQuestions,
       } as ExamineResponse);

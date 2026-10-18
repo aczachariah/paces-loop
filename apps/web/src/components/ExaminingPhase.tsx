@@ -2,6 +2,30 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 
+interface Finding {
+  finding: string | null;
+  bodyPart: string | null;
+  technique: 'inspection' | 'palpation' | 'percussion' | 'auscultation' | 'general';
+  normal: boolean;
+  correction: string | null;
+}
+
+const TECHNIQUE_LABELS: Record<string, string> = {
+  inspection: 'Inspection',
+  palpation: 'Palpation',
+  percussion: 'Percussion',
+  auscultation: 'Auscultation',
+  general: '',
+};
+
+const TECHNIQUE_COLORS: Record<string, string> = {
+  inspection: '#8b5cf6',
+  palpation: '#f59e0b',
+  percussion: '#3b82f6',
+  auscultation: '#ef4444',
+  general: '#6b7280',
+};
+
 function ExaminingPhase({
   caseData,
   timeRemaining,
@@ -11,7 +35,7 @@ function ExaminingPhase({
   timeRemaining: number;
   onComplete: () => void;
 }) {
-  const [findings, setFindings] = useState<{ finding: string | null; description: string; correction: string | null }[]>([]);
+  const [findings, setFindings] = useState<Finding[]>([]);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
   const [examLoading, setExamLoading] = useState(false);
@@ -24,18 +48,16 @@ function ExaminingPhase({
 
   const minutes = Math.floor(timeRemaining / 60);
   const seconds = timeRemaining % 60;
+  const allFindings = findings;
+  const hasFindings = allFindings.length > 0;
 
   // Auto-scroll
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [findings]);
 
-  // Keep ref in sync for recognition.onend closure
-  useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
+  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recognitionRef.current) recognitionRef.current.stop();
@@ -54,8 +76,6 @@ function ExaminingPhase({
     if (!text.trim() || examLoading) return;
     setExamLoading(true);
     clearPauseTimer();
-
-    // Show what was said in the transcript area while loading
     const said = text.trim();
 
     try {
@@ -76,24 +96,40 @@ function ExaminingPhase({
       clearTimeout(timeoutId);
       const data = await res.json();
 
-      const responseText = data.examinerResponse || '';
-      setFindings(prev => [...prev, {
-        finding: responseText.includes('No abnormality') ? null : 'finding',
-        description: responseText,
-        correction: null,
-      }]);
+      // Use structured finding from API if available
+      if (data.finding) {
+        const f = data.finding;
+        setFindings(prev => [...prev, {
+          finding: f.finding || null,
+          bodyPart: f.bodyPart || null,
+          technique: f.technique || 'general',
+          normal: f.normal === true,
+          correction: f.correction || null,
+        }]);
+      } else {
+        // Fallback — parse from raw text
+        const text = data.examinerResponse || '';
+        setFindings(prev => [...prev, {
+          finding: text,
+          bodyPart: null,
+          technique: 'general',
+          normal: false,
+          correction: null,
+        }]);
+      }
 
-      // Check if candidate said they're done — auto-transition
+      // Auto-detect exam completion
       const donePhrases = ['finish', 'complete', 'done', 'finished examining', 'my examination', 'that concludes', 'examination complete', 'finished my exam', 'i have finished'];
-      const lower = said.toLowerCase();
-      if (donePhrases.some(p => lower.includes(p))) {
+      if (donePhrases.some(p => said.toLowerCase().includes(p))) {
         onComplete();
       }
     } catch {
       setFindings(prev => [...prev, {
         finding: null,
-        description: 'Could not process. Try again.',
-        correction: null,
+        bodyPart: null,
+        technique: 'general',
+        normal: false,
+        correction: 'Could not process. Try again.',
       }]);
     } finally {
       setTranscript('');
@@ -102,21 +138,18 @@ function ExaminingPhase({
     }
   }, [caseData.id, examLoading, onComplete]);
 
-  // Auto-submit after pause in speech
   const schedulePauseSubmit = useCallback(() => {
     clearPauseTimer();
     pauseTimerRef.current = setTimeout(() => {
-      // Read final transcript from the recognition's accumulated result
       const finalText = transcript.trim();
       if (finalText && finalText.length > 2) {
         sendExamine(finalText);
       }
-    }, 1000); // 1 second pause → auto-submit
+    }, 1000);
   }, [transcript, sendExamine]);
 
   const toggleListening = useCallback(() => {
     if (isListening) {
-      // Stop — submit whatever we have
       recognitionRef.current?.stop();
       setIsListening(false);
       clearPauseTimer();
@@ -148,21 +181,14 @@ function ExaminingPhase({
           interim += event.results[i][0].transcript;
         }
       }
-
-      setTranscript(prev => {
-        const newVal = prev + finalText;
-        return newVal;
-      });
+      setTranscript(prev => prev + finalText);
       setInterimTranscript(interim);
-
-      // Restart the pause timer on every new speech fragment
       if (finalText || interim) {
         schedulePauseSubmit();
       }
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech error:', event.error);
       if (event.error === 'not-allowed') {
         setSpeechError('Microphone access denied. Grant permission and try again.');
       } else if (event.error === 'no-speech') {
@@ -203,7 +229,6 @@ function ExaminingPhase({
 
   const timerColor = timeRemaining <= 60 ? '#ef4444' : timeRemaining <= 180 ? '#f59e0b' : '#111827';
   const timerBg = timeRemaining <= 60 ? '#fee2e2' : timeRemaining <= 180 ? '#fef3c7' : '#f3f4f6';
-  const lastFiveFindings = findings.slice(-5);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
@@ -231,7 +256,7 @@ function ExaminingPhase({
         flex: 1, overflowY: 'auto', backgroundColor: '#f9fafb',
         borderRadius: '8px', border: '1px solid #e5e7eb', padding: '1rem',
       }}>
-        {findings.length === 0 && (
+        {!hasFindings && (
           <div style={{ textAlign: 'center', color: '#9ca3af', padding: '3rem 1rem' }}>
             <p style={{ fontWeight: '600', color: '#6b7280', margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>
               Examine the patient
@@ -242,36 +267,80 @@ function ExaminingPhase({
           </div>
         )}
 
-        {lastFiveFindings.length > 0 && (
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-            {lastFiveFindings.map((f, i) => (
-              <div key={i} style={{
-                padding: '0.75rem 1rem',
-                borderBottom: i < lastFiveFindings.length - 1 ? '1px solid #f3f4f6' : 'none',
-              }}>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
-                  <span style={{
-                    color: f.finding ? '#059669' : '#6b7280',
-                    fontSize: '1rem', flexShrink: 0, marginTop: '1px',
-                  }}>
-                    {f.finding ? '●' : '○'}
-                  </span>
-                  <div style={{ color: '#374151', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                    {f.description}
-                    {f.correction && (
-                      <div style={{ color: '#d97706', fontSize: '0.8rem', marginTop: '0.3rem', fontStyle: 'italic' }}>
-                        ⚠ {f.correction}
-                      </div>
+        {hasFindings && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {allFindings.map((f, i) => {
+              const techLabel = f.technique !== 'general' ? TECHNIQUE_LABELS[f.technique] : null;
+              const techColor = f.technique !== 'general' ? TECHNIQUE_COLORS[f.technique] : null;
+
+              return (
+                <div key={i} style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: '8px',
+                  border: `1px solid ${f.normal ? '#d1d5db' : '#e5e7eb'}`,
+                  padding: '0.75rem 1rem',
+                }}>
+                  {/* Technique badge + body part */}
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    {techLabel && (
+                      <span style={{
+                        fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase',
+                        color: '#ffffff', backgroundColor: techColor || '#6b7280',
+                        padding: '0.15rem 0.5rem', borderRadius: '4px',
+                        letterSpacing: '0.5px',
+                      }}>
+                        {techLabel}
+                      </span>
+                    )}
+                    {f.bodyPart && (
+                      <span style={{
+                        fontSize: '0.75rem', color: '#6b7280',
+                      }}>
+                        {f.bodyPart}
+                      </span>
+                    )}
+                    {f.normal && (
+                      <span style={{
+                        fontSize: '0.7rem', color: '#059669', fontWeight: '600',
+                      }}>
+                        Normal
+                      </span>
                     )}
                   </div>
+
+                  {/* Finding text */}
+                  <div style={{
+                    display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
+                  }}>
+                    <span style={{
+                      color: f.normal ? '#9ca3af' : '#059669',
+                      fontSize: '1rem', flexShrink: 0, marginTop: '2px',
+                    }}>
+                      {f.normal ? '○' : '●'}
+                    </span>
+                    <div style={{ color: '#374151', fontSize: '0.9rem', lineHeight: '1.5' }}>
+                      {f.finding || (f.normal ? 'No abnormality detected.' : '')}
+                    </div>
+                  </div>
+
+                  {/* Correction */}
+                  {f.correction && (
+                    <div style={{
+                      marginTop: '0.4rem', padding: '0.35rem 0.5rem',
+                      backgroundColor: '#fef3c7', borderRadius: '4px',
+                      color: '#92400e', fontSize: '0.8rem',
+                    }}>
+                      ⚠ {f.correction}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
         {examLoading && (
-          <div style={{ textAlign: 'center', padding: '1rem', color: '#6b7280', fontSize: '0.9rem', animation: 'pulse 1.5s infinite' }}>
+          <div style={{ textAlign: 'center', padding: '1rem', color: '#6b7280', fontSize: '0.9rem' }}>
             Examining...
           </div>
         )}
@@ -294,7 +363,6 @@ function ExaminingPhase({
         backgroundColor: '#ffffff', borderRadius: '8px',
         border: '1px solid #d1d5db', padding: '0.75rem',
       }}>
-        {/* Live transcript */}
         <div style={{
           minHeight: '2rem', marginBottom: '0.5rem',
           color: '#374151', fontSize: '0.95rem', lineHeight: '1.5',
@@ -315,9 +383,7 @@ function ExaminingPhase({
           )}
         </div>
 
-        {/* Controls row */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {/* Mic button — the primary action */}
           <button
             onClick={toggleListening}
             disabled={examLoading}
@@ -330,14 +396,12 @@ function ExaminingPhase({
               cursor: examLoading ? 'not-allowed' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '1.2rem', flexShrink: 0,
-              transition: 'all 0.15s',
             }}
             title={isListening ? 'Stop and submit' : 'Start voice input'}
           >
             {isListening ? '⏹' : '🎤'}
           </button>
 
-          {/* Text input — fallback */}
           <input
             value={transcript}
             onChange={e => setTranscript(e.target.value)}
@@ -352,7 +416,6 @@ function ExaminingPhase({
             }}
           />
 
-          {/* Send button — visible when typing, hidden when listening */}
           {!isListening && (
             <button
               onClick={() => {
@@ -367,7 +430,7 @@ function ExaminingPhase({
                 padding: '0.6rem 1.25rem', borderRadius: '6px',
                 border: 'none', backgroundColor: '#3b82f6',
                 color: '#ffffff', fontWeight: '600', fontSize: '0.9rem',
-                cursor: examLoading ? 'not-allowed' : 'pointer',
+                cursor: examLoading || !transcript.trim() || transcript.trim().length < 3 ? 'not-allowed' : 'pointer',
                 opacity: examLoading || !transcript.trim() || transcript.trim().length < 3 ? 0.6 : 1,
                 whiteSpace: 'nowrap',
               }}
@@ -376,7 +439,6 @@ function ExaminingPhase({
             </button>
           )}
 
-          {/* Present button */}
           <button
             onClick={onComplete}
             disabled={examLoading}
