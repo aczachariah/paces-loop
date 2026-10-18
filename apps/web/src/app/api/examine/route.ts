@@ -70,7 +70,7 @@ EXAMINER NOTES: ${caseData.examinerNotes}
 ---
 
 RULES:
-1. Respond with valid JSON ONLY — no markdown, no explanation, just a JSON object on one line
+1. Your response must START with {"finding" — respond with JSON only
 2. Format: {"finding": "the finding text or null if normal", "body_part": "affected body area or null", "technique": "inspection|palpation|percussion|auscultation|general", "correction": "if technique wrong, brief correction, otherwise null", "normal": true|false}
 3. If there is an abnormal finding, "normal" must be false and "finding" must describe it
 4. If the finding is normal, state: {"finding": null, "body_part": "body area examined", "technique": "the technique", "normal": true, "correction": null}
@@ -304,11 +304,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       };
 
       try {
-        const clean = aiResponse
+        // Try to extract JSON from anywhere in the response using regex
+        const jsonMatch = aiResponse.match(/\{"finding[\s\S]*?"correction":\s*(null|"[^"]*")\s*\}/);
+        const jsonStr = jsonMatch ? jsonMatch[0] : aiResponse
           .replace(/^```json\s*/i, '')
           .replace(/\s*```$/i, '')
           .trim();
-        const parsed = JSON.parse(clean);
+        const parsed = JSON.parse(jsonStr);
         if (parsed && typeof parsed === 'object') {
           structuredFinding = {
             finding: parsed.finding || null,

@@ -118,6 +118,7 @@ function ExaminingPhase({
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isListeningRef = useRef(false);
   const submittedRef = useRef(false);
+  const lastSubmitRef = useRef(0);
   const findingsEndRef = useRef<HTMLDivElement>(null);
 
   const minutes = Math.floor(timeRemaining / 60);
@@ -163,6 +164,7 @@ function ExaminingPhase({
 
   const sendExamine = useCallback(async (text: string) => {
     if (!text.trim() || examLoading) return;
+    lastSubmitRef.current = Date.now();
     setExamLoading(true);
     clearPauseTimer();
     const said = text.trim();
@@ -279,7 +281,9 @@ function ExaminingPhase({
     recognition.maxAlternatives = 1;
 
     recognition.onresult = (event: any) => {
-      // Only submit on final results, not interim word fragments
+      // Hard cooldown: ignore any speech result within 2 seconds of a submit
+      if (Date.now() - lastSubmitRef.current < 2000) return;
+      // Only submit on final results
       if (!event.results[0].isFinal) return;
       if (submittedRef.current) return;
       const said = event.results[0][0].transcript.trim();
