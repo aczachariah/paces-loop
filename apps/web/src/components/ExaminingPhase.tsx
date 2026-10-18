@@ -118,6 +118,7 @@ function ExaminingPhase({
   const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isListeningRef = useRef(false);
   const submittedRef = useRef(false);
+  const loadingRef = useRef(false);
   const lastSubmitRef = useRef(0);
   const findingsEndRef = useRef<HTMLDivElement>(null);
 
@@ -164,6 +165,8 @@ function ExaminingPhase({
 
   const sendExamine = useCallback(async (text: string) => {
     if (!text.trim() || examLoading) return;
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     lastSubmitRef.current = Date.now();
     setExamLoading(true);
     clearPauseTimer();
@@ -243,6 +246,7 @@ function ExaminingPhase({
       setTranscript('');
       setInterimTranscript('');
       setExamLoading(false);
+      loadingRef.current = false;
     }
   }, [caseData.id, examLoading, onComplete, conversationHistory]);
 
@@ -309,8 +313,10 @@ function ExaminingPhase({
     };
 
     recognition.onend = () => {
-      // Recognition naturally ends after one utterance — good
+      // Recognition naturally ends after one utterance
       setIsListening(false);
+      // Reset submitted after a short delay so mic can be used again
+      setTimeout(() => { submittedRef.current = false; }, 500);
     };
 
     recognitionRef.current = recognition;
