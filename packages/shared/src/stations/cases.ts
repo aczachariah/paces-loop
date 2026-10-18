@@ -2,10 +2,11 @@ import type { CaseDefinition } from '../types';
 
 /**
  * PACES Case Library — structured cases for AI Examiner mode.
- * Each case contains the brief (what the candidate reads), clinical data
- * (history, findings, audio, investigations), expected differentials,
- * and examiner notes for the AI to reference.
+ * Each case contains findings organised by examination technique so the
+ * AI can respond correctly when a candidate describes a specific step.
  */
+
+// ─── Cardio: Mitral Regurgitation ─────────────────────────────────
 
 export const cardioCase1: CaseDefinition = {
   id: 'cardio-mitral-regurg',
@@ -16,12 +17,29 @@ export const cardioCase1: CaseDefinition = {
   clinicalData: {
     history: 'SOB on exertion (NYHA II-III), orthopnoea, paroxysmal nocturnal dyspnoea, palpitations. No chest pain. No ankle swelling.',
     examFindings: [
-      'Atrial fibrillation (irregularly irregular pulse)',
-      'Elevated JVP with prominent v waves',
-      'Displaced, hyperdynamic apex beat (lateral to midclavicular line, 6th intercostal space)',
-      'Pan-systolic murmur loudest at apex, radiating to axilla',
-      'Soft S1, wide-splitting S2',
-      'Bibasal fine inspiratory crackles',
+      'General inspection: breathless at rest, using 2 pillows (orthopnoea), no cyanosis',
+      'Around the bed: inhalers, GTN spray, no oxygen',
+      'Hands: no clubbing, no splinter haemorrhages, no tar staining',
+      'Radial pulse: irregularly irregular (atrial fibrillation), rate ~100bpm',
+      'Blood pressure: 130/70 (no significant difference between arms)',
+      'Face: malar flush, no pallor, conjunctivae normal',
+      'JVP: elevated at 8cm with prominent v waves (tricuspid regurgitation from RV volume overload)',
+      'Trachea: central',
+      'Inspect chest: no scars, no deformities, normal AP diameter',
+      'Palpate chest: apex beat displaced laterally to 6th intercostal space, anterior axillary line — hyperdynamic and volume-loaded',
+      'Palpate right ventricular heave: none',
+      'Percuss chest: resonant, no dullness',
+      'Auscultate lung bases: bibasal fine inspiratory crackles (pulmonary oedema)',
+      'Auscultate apex with bell: pan-systolic murmur loudest at apex, radiating to axilla',
+      'Auscultate left sternal edge: soft S1, wide-splitting S2, no added sounds',
+      'Auscultate aortic area: no murmur',
+      'Auscultate pulmonary area: no murmur',
+      'Auscultate carotids: no bruit',
+      'Abdomen: soft, non-tender, no organomegaly, no ascites',
+      'Legs: no peripheral oedema, no calf tenderness, normal capillary refill',
+      'Sacral oedema: none',
+      'Ankle jerks: present and equal bilaterally',
+      'Plantar responses: down-going bilaterally',
     ],
     audioClips: [
       { label: 'Pan-systolic murmur (mitral regurgitation)', url: '/audio/pan-systolic-murmur.mp3' },
@@ -41,6 +59,8 @@ export const cardioCase1: CaseDefinition = {
   examinerNotes: 'Key signs: pan-systolic murmur at apex radiating to axilla, displaced apex, AF, elevated JVP with v waves. Candidate should suggest echo as key investigation, comment on medical vs surgical management (valve repair vs replacement), and recognise signs of heart failure.',
 };
 
+// ─── Cardio: Aortic Stenosis ──────────────────────────────────────
+
 export const cardioCase2: CaseDefinition = {
   id: 'cardio-aortic-stenosis',
   system: 'cardio',
@@ -50,12 +70,27 @@ export const cardioCase2: CaseDefinition = {
   clinicalData: {
     history: 'Exertional angina (central chest tightness when walking uphill), pre-syncope on standing, progressive SOB (NYHA II-III). No palpitations. No syncope.',
     examFindings: [
-      'Slow-rising, low-volume carotid pulse (pulsus parvus et tardus)',
-      'Heaving, non-displaced apex beat',
-      'Ejection systolic murmur loudest at right upper sternal edge, radiating to carotids',
-      'S4 gallop (atrial kick against stiff LV)',
-      'Soft or reversed splitting of S2',
-      'Signs of heart failure if decompensated',
+      'General inspection: comfortable at rest, no distress, no cyanosis',
+      'Around the bed: no inhalers, no GTN, no oxygen',
+      'Hands: no clubbing, warm peripheries, no splinter haemorrhages',
+      'Radial pulse: slow-rising, low volume — pulsus parvus et tardus (classic AS sign)',
+      'Blood pressure: narrow pulse pressure — 110/85 (normal systolic, elevated diastolic)',
+      'Face: no malar flush, conjunctivae normal, no pallor',
+      'JVP: normal at 3cm, no elevation',
+      'Trachea: central',
+      'Inspect chest: no scars, no deformities',
+      'Palpate chest: heaving, non-displaced apex beat in 5th intercostal space, midclavicular line — pressure-loaded LV',
+      'Palpate for thrill: systolic thrill palpable at right upper sternal edge',
+      'Percuss chest: resonant, normal',
+      'Auscultate lung bases: clear, no crackles (if decompensated, crackles present)',
+      'Auscultate aortic area: ejection systolic murmur, loudest at right upper sternal edge, radiating to carotids',
+      'Auscultate apex: murmur heard at apex but softer than at aortic area',
+      'Auscultate left sternal edge: S4 gallop (atrial kick against stiff LV)',
+      'Auscultate S2: soft or reversed splitting of S2',
+      'Auscultate carotids: radiation of murmur heard, no bruit',
+      'Abdomen: soft, non-tender, no organomegaly',
+      'Legs: no peripheral oedema, no calf tenderness',
+      'Sacral oedema: none',
     ],
     audioClips: [
       { label: 'Ejection systolic murmur (aortic stenosis)', url: '/audio/aortic-stenosis-murmur.mp3' },
@@ -75,6 +110,8 @@ export const cardioCase2: CaseDefinition = {
   examinerNotes: 'Key signs: slow-rising pulse, ejection systolic murmur radiating to carotids, heaving apex. Candidate should mention echo for severity grading, discuss symptoms (angina, syncope, SOB = poor prognosis), and know that severe symptomatic AS requires surgical valve replacement.',
 };
 
+// ─── Resp: COPD Exacerbation ──────────────────────────────────────
+
 export const respCase1: CaseDefinition = {
   id: 'resp-copd-exacerbation',
   system: 'resp',
@@ -84,14 +121,29 @@ export const respCase1: CaseDefinition = {
   clinicalData: {
     history: 'Increasing SOB at rest and on minimal exertion, productive cough with yellow-green sputum, wheeze. No fevers. No haemoptysis. Reduced exercise tolerance compared to baseline.',
     examFindings: [
-      'Tachypnoeic (RR 24), using accessory muscles',
-      'Pursed-lip breathing',
-      'Hyperinflation (barrel chest, reduced crico-sternal distance)',
-      'Reduced chest expansion bilaterally',
-      'Hyper-resonant percussion note',
-      'Widespread expiratory wheeze',
-      'Prolonged expiratory phase',
-      'Distant heart sounds due to hyperinflation',
+      'General inspection: tachypnoeic at rest (RR 24), using accessory muscles, pursed-lip breathing',
+      'Around the bed: blue inhalers (salbutamol), brown inhaler (beclometasone), sputum pot with purulent sputum, no oxygen at home',
+      'Hands: no clubbing (important negative — COPD alone does not cause clubbing), no cyanosis',
+      'Hands tar staining: yellow/brown staining on index and middle fingers (smoking)',
+      'Radial pulse: bounding, full volume (may indicate CO₂ retention)',
+      'Asterixis (flapping tremor): positive — ask patient to hold arms extended with wrists extended — flapping tremor suggests CO₂ retention and type 2 respiratory failure',
+      'Blood pressure: normal range',
+      'Face: plethoric (ruddy complexion from secondary polycythaemia), conjunctival suffusion',
+      'JVP: may be elevated if cor pulmonale has developed — check at 45 degrees',
+      'Trachea: central (deviated only if pneumothorax or fibrosis)',
+      'Inspect chest: barrel-shaped, hyperinflated, reduced crico-sternal distance (<3 fingerbreadths), using accessory muscles (SCM, intercostals)',
+      'Measure chest expansion: reduced bilaterally — <2cm expansion',
+      'Palpate chest: no tenderness, no masses',
+      'Palpate apex beat: difficult to palpate (hyperinflation pushes heart medially)',
+      'Percuss chest: hyper-resonant throughout — classic sign of hyperinflation',
+      'Percuss liver span: liver dullness may be displaced downward (hyperinflation pushes diaphragm down)',
+      'Auscultate breath sounds: distant/quiet breath sounds bilaterally (hyperinflation)',
+      'Auscultate lung bases: fine crackles may be present if secretions',
+      'Auscultate wheeze: widespread expiratory wheeze, prolonged expiratory phase (>4 seconds)',
+      'Auscultate heart sounds: distant heart sounds due to hyperinflation',
+      'Abdomen: soft, non-tender — check for liver descent (pushed down by hyperinflation)',
+      'Legs: check for pitting ankle oedema — present if cor pulmonale has developed',
+      'Cough: ask patient to cough — productive of yellow-green purulent sputum',
     ],
     audioClips: [
       { label: 'Expiratory wheeze (COPD)', url: '/audio/expiratory-wheeze.mp3' },
@@ -101,7 +153,7 @@ export const respCase1: CaseDefinition = {
       'CXR: Hyperinflation, flattened hemidiaphragms, bullae, no consolidation',
       'ABG: Type 1 or Type 2 respiratory failure depending on severity',
       'Sputum culture: H. influenzae or S. pneumoniae',
-      'FBC: Raised WCC (infection)',
+      'FBC: Raised WCC (infection), raised Hb (polycythaemia from chronic hypoxia)',
     ],
   },
   expectedDifferentials: [
@@ -109,8 +161,10 @@ export const respCase1: CaseDefinition = {
     'Community-acquired pneumonia',
     'Heart failure (may coexist)',
   ],
-  examinerNotes: 'Key signs: hyperinflation, wheeze, pursed-lip breathing, reduced expansion. Candidate should check oxygen saturation, arrange CXR, ABG, and escalate to NIV if hypercapnic. Must differentiate from asthma and heart failure.',
+  examinerNotes: 'Key signs: hyperinflation, wheeze, pursed-lip breathing, reduced expansion, asterixis (CO₂ retention). Candidate should check oxygen saturation, arrange CXR, ABG. Must differentiate from asthma and heart failure. Check for cor pulmonale signs (JVP, ankle oedema, loud P2).',
 };
+
+// ─── Neuro: Upper Limb Lesion ─────────────────────────────────────
 
 export const neuroCase1: CaseDefinition = {
   id: 'neuro-upper-limb-lesion',
@@ -121,13 +175,40 @@ export const neuroCase1: CaseDefinition = {
   clinicalData: {
     history: 'Progressive left-sided weakness over 3 weeks, left hand paraesthesia, dragging left leg when walking. No headache. No visual symptoms. No sphincter disturbance. Previously well, no significant PMH.',
     examFindings: [
-      'Left-sided hemiparesis (power 4/5 in left arm and leg)',
-      'Increased tone in left arm and leg (spasticity)',
-      'Hyperreflexia in left biceps, triceps, knee, and ankle reflexes',
-      'Left extensor plantar response (upgoing toe)',
-      'Reduced sensation to pinprick and light touch on left side',
-      'Normal cranial nerves including visual fields',
-      'Normal cerebellar function',
+      'General inspection: patient alert and orientated, speaking normally',
+      'Around the bed: walking stick, no other aids',
+      'Hands: no wasting, no fasciculations (upper motor neuron lesion does not cause wasting)',
+      'Tone in left arm: increased (spasticity) — clasp-knife rigidity on rapid movement',
+      'Tone in right arm: normal',
+      'Tone in left leg: increased (spasticity)',
+      'Tone in right leg: normal',
+      'Power in left arm: 4/5 (MRC scale) — reduced throughout left arm',
+      'Power in right arm: 5/5 — normal',
+      'Power in left leg: 4/5 — reduced',
+      'Power in right leg: 5/5 — normal',
+      'Reflexes left biceps: hyperreflexic (+++)',
+      'Reflexes right biceps: normal (++)',
+      'Reflexes left triceps: hyperreflexic (+++)',
+      'Reflexes right triceps: normal (++)',
+      'Reflexes left supinator: hyperreflexic (+++)',
+      'Reflexes right supinator: normal (++)',
+      'Reflexes left knee: hyperreflexic (+++)',
+      'Reflexes right knee: normal (++)',
+      'Reflexes left ankle: hyperreflexic (+++)',
+      'Reflexes right ankle: normal (++)',
+      'Plantar response left: extensor (upgoing toe — UMN sign)',
+      'Plantar response right: flexor (normal downgoing)',
+      'Sensation light touch left: reduced on entire left side',
+      'Sensation light touch right: normal',
+      'Sensation pinprick left: reduced on entire left side',
+      'Sensation pinprick right: normal',
+      'Sensation proprioception left: intact',
+      'Sensation vibration left: intact',
+      'Cranial nerves I-XII: all normal — including visual fields, fundoscopy, eye movements, facial sensation and movement, hearing, palate, tongue',
+      'Coordination left arm: normal (no cerebellar signs) — past pointing absent',
+      'Coordination right arm: normal',
+      'Gait: left-sided circumduction (hemiparetic gait), reduced left arm swing',
+      'Romberg test: negative (stands steady with eyes closed)',
     ],
     audioClips: [],
     investigations: [
@@ -144,6 +225,8 @@ export const neuroCase1: CaseDefinition = {
   examinerNotes: 'Key feature: UMN signs on left = right brain lesion. Candidate must localise the lesion first (UMN vs LMN, then which side of brain/spinal cord). Important to differentiate stroke (acute) vs tumour (subacute/progressive). Imaging strategy is critical: CT first if stroke suspected, MRI for tumour/demyelination.',
 };
 
+// ─── Abdo: Hepatomegaly with Ascites ──────────────────────────────
+
 export const abdoCase1: CaseDefinition = {
   id: 'abdo-hepatomegaly',
   system: 'abdo',
@@ -153,12 +236,33 @@ export const abdoCase1: CaseDefinition = {
   clinicalData: {
     history: 'Progressive abdominal swelling, early satiety, dull ache in RUQ, unintentional weight loss of 8 kg over 3 months. Mild ankle swelling. No haematemesis. No melaena.',
     examFindings: [
-      'Distended abdomen with flank dullness and shifting dullness (ascites)',
-      'Palpable, firm, nodular liver 4 cm below costal margin',
-      'Caput medusae (dilated abdominal wall veins)',
-      'Palmar erythema and spider naevi on chest',
-      'Mild pitting ankle oedema',
-      'No splenomegaly',
+      'General inspection: thin, jaundiced (yellow sclera), appears chronically unwell',
+      'Around the bed: no alcohol bottles visible',
+      'Hands: palmar erythema (thenar and hypothenar eminences), Dupuytren contracture possible',
+      'Nails: leukonychia (white nails — hypoalbuminaemia), clubbing absent',
+      'Radial pulse: normal rate and volume',
+      'Asterixis (flapping tremor): positive in decompensated liver disease (hepatic encephalopathy)',
+      'Face: jaundiced sclera, spider naevi on face and chest (>5 suggests significant liver disease)',
+      'Mouth: foetor hepaticus (sweet, musty breath — portosystemic shunting)',
+      'JVP: normal at 3cm (liver is enlarged due to cirrhosis, not right heart failure)',
+      'Trachea: central',
+      'Inspect chest: gynaecomastia (loss of male hair pattern, breast tissue), spider naevi on chest',
+      'Palpate chest: no tenderness, normal expansion',
+      'Auscultate chest: clear lung fields',
+      'Inspect abdomen: distended — tense, shiny skin with dilated abdominal wall veins (caput medusae — blood flows away from umbilicus), umbilical hernia possible',
+      'Auscultate abdomen: bowel sounds present, normal',
+      'Palpate abdomen superficially: firm, non-tender, no guarding',
+      'Palpate liver: firm, nodular, non-tender liver edge 4cm below costal margin in midclavicular line',
+      'Palpate spleen: not palpable (no splenomegaly on examination)',
+      'Palpate kidneys: not ballotable',
+      'Percuss liver span: increased — 16cm in midclavicular line',
+      'Percuss shifting dullness: positive — confirms ascites (dullness shifts with position)',
+      'Percuss fluid thrill: present in tense ascites',
+      'Inguinal hernia: possible due to increased intra-abdominal pressure',
+      'External genitalia: testicular atrophy (loss of androgens)',
+      'Legs: pitting ankle oedema bilaterally (hypoalbuminaemia / portal hypertension)',
+      'Sacral oedema: present if fluid overload',
+      'Neurological: assessment for hepatic encephalopathy (confusion, asterixis, disorientation)',
     ],
     audioClips: [],
     investigations: [
@@ -177,6 +281,8 @@ export const abdoCase1: CaseDefinition = {
   ],
   examinerNotes: 'Key signs: ascites, firm nodular liver, stigmata of chronic liver disease (spider naevi, palmar erythema, caput medusae). Candidate must differentiate transudative vs exudative ascites, check for HCC with AFP and imaging, and discuss management of ascites (salt restriction, diuretics, paracentesis), and alcohol cessation.',
 };
+
+// ─── All Cases ────────────────────────────────────────────────────
 
 /** All cases grouped by system for easy selection */
 export const caseLibrary: Record<string, CaseDefinition[]> = {
