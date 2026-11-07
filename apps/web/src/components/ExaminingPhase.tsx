@@ -62,12 +62,16 @@ export default function ExaminingPhase({ caseData, timeRemaining, findings, onFi
   const minutes = Math.floor(timeRemaining / 60);
 
   useEffect(() => { findingsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [findings]);
-  useEffect(() => () => {
-    mountedRef.current = false;
-    requestGenerationRef.current.invalidate();
-    abortRef.current?.abort();
-    recognitionRef.current?.abort();
-    if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
+  useEffect(() => {
+    const requestGeneration = requestGenerationRef.current;
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      requestGeneration.invalidate();
+      abortRef.current?.abort();
+      recognitionRef.current?.abort();
+      if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
+    };
   }, []);
 
   const finishExam = useCallback(() => {
