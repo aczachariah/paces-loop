@@ -1,454 +1,228 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { CaseDefinition, ExaminerMessage, ExaminerFeedback } from '@paces/shared';
-import { allCases } from '@paces/shared';
+import type { CaseDefinition, ExaminerFeedback, ExaminerMessage } from '@paces/shared';
+import { allCases, buildFormativeFeedback, selectExamFinding } from '@paces/shared/server';
+import type { FeedbackAssessment } from '@paces/shared/server';
+import {
+  createExamSessionToken, InvalidExamSession, readExamSessionToken, recordFinding,
+  rehydrateExamination, sessionMessages, type ExamSession,
+} from '../../../lib/examSession';
 
-// ─── Server-side case cache ───────────────────────────────────────
-const caseCache = new Map<string, CaseDefinition>();
-for (const c of allCases) {
-  caseCache.set(c.id, c);
-}
-
-// ─── Types for this route ─────────────────────────────────────────
+const caseCache = new Map(allCases.map(item => [item.id, item]));
+const ENGY_KEY = process.env.ENGY_API_KEY || process.env.HERMES_CUSTOM_API_ENGY_AI_API_KEY || '';
+const SAYGM_KEY = process.env.SAYGM_API_KEY || '';
 
 interface ExamineRequest {
   caseId: string;
   phase: 'examine' | 'present' | 'viva' | 'feedback';
   userInput: string;
-  conversationHistory: ExaminerMessage[];
-  askedQuestions?: string[];
+  sessionToken?: string;
 }
 
-interface ExamineFindingResult {
-  finding: string | null;
-  bodyPart: string | null;
-  technique: 'inspection' | 'palpation' | 'percussion' | 'auscultation' | 'general';
-  normal: boolean;
-  correction: string | null;
-}
-
-interface ExamineResponse {
-  examinerResponse: string;
-  finding?: ExamineFindingResult;
-  vivaQuestion?: string;
-  feedback?: ExaminerFeedback;
-  complete: boolean;
-  askedQuestions?: string[];
-}
-
-// ─── Constants ────────────────────────────────────────────────────
-
-const ENGY_URL = 'https://api.engy.ai/v1/chat/completions';
-const ENGY_KEY = process.env.ENGY_API_KEY || process.env.HERMES_CUSTOM_API_ENGY_AI_API_KEY || '';
-const SAYGM_URL = 'https://api.saygm.com/v1/chat/completions';
-const SAYGM_KEY = process.env.SAYGM_API_KEY || '';
-
-// Engy model name vs Saygm model name
-const ENGY_MODEL = 'deepseek-v4-flash-0731';
-const SAYGM_MODEL = 'deepseek-ai/DeepSeek-V4-Flash-0731-TEE';
-
-const VIVA_QUESTIONS = [
-  "Thank you for your presentation. Tell me, what other clinical signs would you look for to support your diagnosis?",
-  "What is your differential diagnosis, and why have you chosen this order of likelihood?",
-  "What investigations would you arrange, and what would you expect them to show?",
-  "How would you manage this patient? Include both immediate and long-term management.",
-  "Are there any red flags or complications to consider with this condition?",
-];
-
-
-function buildExaminerPrompt(caseData: CaseDefinition): string {
-  return `You are a PACES examiner observing a candidate examine a patient. The candidate will describe what they are examining and you report the clinical findings they would discover. You do NOT roleplay as the patient — you are the examiner reporting findings objectively.
-
-You have the following confidential case data about the patient:
-
----
-PATIENT: ${caseData.title}
-BRIEF: ${caseData.brief}
-HISTORY: ${caseData.clinicalData.history}
-EXAM FINDINGS: ${caseData.clinicalData.examFindings.join(', ')}
-EXPECTED DIFFERENTIALS: ${caseData.expectedDifferentials.join(', ')}
-EXAMINER NOTES: ${caseData.examinerNotes}
----
-
-RULES:
-1. Your response must START with {"finding" — respond with JSON only
-2. Format: {"finding": "the finding text or null if normal", "body_part": "affected body area or null", "technique": "inspection|palpation|percussion|auscultation|general", "correction": "if technique wrong, brief correction, otherwise null", "normal": true|false}
-3. If there is an abnormal finding, "normal" must be false and "finding" must describe it
-4. If the finding is normal, state: {"finding": null, "body_part": "body area examined", "technique": "the technique", "normal": true, "correction": null}
-5. **CRITICAL: Read the candidate's latest utterance carefully. Respond to what they just said, not to previous utterances. If they say "palpate the abdomen", respond with abdomen findings, not hands.**
-6. When the candidate describes a technique that is close enough to elicit a finding, give the finding. Only use "correction" if the technique is genuinely wrong for that body part — and even then, still give the finding if the technique would work
-7. For example, "listen to the chest" = auscultation = give the finding. "Feel the chest expansion" = palpation = give the finding
-8. Only reveal the finding for the SPECIFIC technique the candidate describes
-9. If they ask vaguely ("what's wrong?"), respond: {"finding": null, "body_part": null, "technique": "general", "normal": false, "correction": "Describe a specific examination technique, please."}
-10. If they miss a step, do NOT volunteer that finding
-11. Never ask "what next?" — the candidate will volunteer the next step
-12. Never say "doctor"
-
-Examples:
-Candidate: "I'll inspect the hands"
-You: {"finding":"Clubbing of the nails with splinter haemorrhages.","body_part":"hands","technique":"inspection","normal":false,"correction":null}
-
-Candidate: "Palpate the apex beat"
-You: {"finding":"The apex beat is displaced laterally to the 6th intercostal space, tapping in nature.","body_part":"precordium","technique":"palpation","normal":false,"correction":null}
-
-Candidate: "Listen to the lung bases"
-You: {"finding":"Fine inspiratory crackles at both lung bases.","body_part":"lung bases","technique":"auscultation","normal":false,"correction":null}
-
-Candidate: "Listen to the heart"
-You: {"finding":null,"body_part":"heart","technique":"auscultation","normal":true,"correction":null}
-
-Candidate: "Feel chest expansion"
-You: {"finding":"Chest expansion is reduced on the right side.","body_part":"chest","technique":"palpation","normal":false,"correction":null}
-
-Candidate: "What's wrong with you?"
-You: {"finding":null,"body_part":null,"technique":"general","normal":false,"correction":"Describe a specific examination technique, please."}
-
-Candidate: "Feel the radial pulse"
-You: {"finding":"Radial pulse is regular, 76bpm, normal volume.","body_part":"radial artery","technique":"palpation","normal":true,"correction":null}
-
-Candidate: "Auscultate the chest"
-You: {"finding":"Fine inspiratory crackles at both lung bases with a prolonged expiratory phase.","body_part":"lung bases","technique":"auscultation","normal":false,"correction":null}
-`;
-}
-
-function buildSystemPrompt(caseData: CaseDefinition): string {
-  return `You are a PACES examiner conducting a clinical examination station. You are assessing a candidate's ability to examine a patient, present findings, and answer viva questions. You are NOT a helpful tutor — you are an examiner.
-
-You have access to the following confidential case data. The candidate does NOT know what you know.
-
----
-PATIENT: ${caseData.title}
-BRIEF: ${caseData.brief}
-CONFIDENTIAL HISTORY: ${caseData.clinicalData.history}
-CONFIDENTIAL EXAM FINDINGS: ${caseData.clinicalData.examFindings.join(', ')}
-CONFIDENTIAL INVESTIGATIONS: ${caseData.clinicalData.investigations.join(', ')}
-EXPECTED DIFFERENTIALS: ${caseData.expectedDifferentials.join(', ')}
-EXAMINER NOTES: ${caseData.examinerNotes}
----
-
-PHASE 1 — PRESENTATION:
-The candidate has examined the patient and now presents their findings.
-- Listen to their presentation and evaluate it against the known findings.
-- Respond as an examiner would — nod, prompt for more, ask clarifying questions.
-- Do NOT reveal findings they missed or give them the answer. Simply prompt them to elaborate.
-- Take note of: missed findings, correct findings, clarity of presentation, differential quality.
-
-PHASE 2 — VIVA:
-Ask probing PACES-style questions. Challenge the candidate gently but firmly.
-- If they give a weak answer, ask a follow-up.
-- Do NOT answer your own questions.
-- Acknowledge correct answers briefly ("That's reasonable") before moving on.
-
-PHASE 3 — FEEDBACK (final response only):
-Provide structured PACES-style feedback covering:
-1. Presentation quality and structure
-2. Key signs identified vs missed
-3. Differential diagnosis reasoning
-4. Viva performance
-5. Overall score out of 10 (7+ = pass)
-6. 2-3 specific actionable improvements
-
-IMPORTANT RULES:
-- Never reveal the confidential case data to the candidate.
-- Keep responses concise — 2-4 sentences per turn during presentation and viva.
-- During feedback, provide thorough, structured assessment.
-- Do not repeat what the candidate said back to them unless providing feedback.`;
-}
-
-// ─── Multi-provider Inference ────────────────────────────────
-
-async function callProvider(
-  url: string,
-  apiKey: string,
-  model: string,
-  messages: { role: string; content: string }[],
-  label: string
-): Promise<string> {
+async function callProvider(url: string, apiKey: string, model: string, messages: { role: string; content: string }[], label: string): Promise<string> {
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      max_tokens: 1024,
-      temperature: 0.5,
-    }),
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, messages, max_tokens: 1500, temperature: 0.2 }),
     signal: AbortSignal.timeout(15000),
   });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`${label} API error (${response.status}): ${text.slice(0, 200)}`);
-  }
-
+  if (!response.ok) throw new Error(`${label} API error (${response.status})`);
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
+  const content = data.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) throw new Error(`${label} returned an empty response`);
+  return content;
 }
 
 async function callInference(messages: { role: string; content: string }[]): Promise<string> {
-  // Try Engy first
+  const errors: string[] = [];
   if (ENGY_KEY) {
-    try {
-      return await callProvider(ENGY_URL, ENGY_KEY, ENGY_MODEL, messages, 'Engy');
-    } catch (err) {
-      console.error('Engy failed, trying Saygm:', (err as Error).message);
-    }
+    try { return await callProvider('https://api.engy.ai/v1/chat/completions', ENGY_KEY, 'deepseek-v4-flash-0731', messages, 'Engy'); }
+    catch (error) { errors.push((error as Error).message); }
   }
-
-  // Fallback to Saygm
   if (SAYGM_KEY) {
-    try {
-      return await callProvider(SAYGM_URL, SAYGM_KEY, SAYGM_MODEL, messages, 'Saygm');
-    } catch (err) {
-      console.error('Saygm also failed:', (err as Error).message);
-    }
+    try { return await callProvider('https://api.saygm.com/v1/chat/completions', SAYGM_KEY, 'deepseek-ai/DeepSeek-V4-Flash-0731-TEE', messages, 'Saygm'); }
+    catch (error) { errors.push((error as Error).message); }
   }
-
-  throw new Error('All inference providers failed. Check API keys.');
+  console.error('Inference failed:', errors.join('; '));
+  throw new Error('The examiner is temporarily unavailable.');
 }
 
-function parseFeedback(aiResponse: string): ExaminerFeedback {
-  // Default values in case parsing fails
-  const defaultFeedback: ExaminerFeedback = {
-    score: 5,
-    maxScore: 10,
-    presentationFeedback: '',
-    vivaFeedback: '',
-    keySignsIdentified: [],
-    keySignsMissed: [],
-    differentialsCorrect: [],
-    differentialsMissed: [],
-    overallFeedback: aiResponse,
-    passed: false,
+function extractJson(response: string): unknown {
+  const cleaned = response.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try { return JSON.parse(cleaned); } catch { /* Model may add an explanation. */ }
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('Invalid structured examiner response');
+  return JSON.parse(cleaned.slice(start, end + 1));
+}
+
+function buildFindingSelectorPrompt(caseData: CaseDefinition): string {
+  const options = caseData.clinicalData.examFindings.map(item =>
+    `${item.id}: ${item.label} (${item.technique}; ${item.bodyPart})`,
+  ).join('\n');
+  return `You route a PACES candidate's examination utterance to one available examination step.
+Return only JSON: {"finding_id":"ID from the list", "correction":null}
+or {"finding_id":null,"correction":"brief request for a specific examination step"}.
+
+AVAILABLE STEPS:
+${options}
+
+Rules:
+- Select the closest matching specific step; informal descriptions such as "listen to the lungs" count.
+- "Inspect", "feel", "percuss" and "listen" distinguish techniques.
+- If an utterance covers a broader step, select its broad finding, not a more specific abnormal sign.
+- Do not reveal the diagnosis or any clinical finding.
+- Use correction only for genuinely incorrect technique or an unavailable action; otherwise null.
+- Never invent an ID. No history is provided because each call is independent.`;
+}
+
+function buildFeedbackPrompt(caseData: CaseDefinition): string {
+  return `You are a senior PACES examiner providing formative feedback, not predicting an official PACES result.
+Assess only the evidence supplied. Return only JSON with exactly:
+{"presentation":"2-4 sentences","differentials":"1-3 sentences","viva":"2-4 sentences","improvements":["specific action","specific action","specific action"],"presentationScore":0,"vivaScore":0,"differentialsRecognised":[]}
+presentationScore: integer 0-2 (0 poor/unsafe, 1 partial, 2 clear and accurate).
+vivaScore: integer 0-3 (0 no meaningful answers, 1 limited, 2 mostly sound, 3 consistently strong).
+differentialsRecognised: only exact strings from EXPECTED DIFFERENTIALS actually supported by the presentation; never a primary diagnosis mentioned only during viva.
+Evaluate organisation, clinical reasoning, case-specific viva answers and omissions. Do not calculate an overall score. Do not invent findings.
+CASE DIAGNOSIS: ${caseData.title}
+EXPECTED DIFFERENTIALS: ${caseData.expectedDifferentials.join('; ')}
+VIVA GUIDANCE: ${caseData.vivaQuestions.map(item => `${item.question} ${item.guidance}`).join('\n')}`;
+}
+
+function boundedInteger(value: unknown, maximum: number, label: string): number {
+  if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > maximum) throw new Error(`Invalid ${label}`);
+  return value as number;
+}
+
+function narrative(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !value.trim() || value.length > 4000) throw new Error(`Invalid feedback ${label}`);
+  return value.trim();
+}
+
+function parseFeedback(raw: string, caseData: CaseDefinition): FeedbackAssessment {
+  const value = extractJson(raw) as Record<string, unknown>;
+  if (!Array.isArray(value.improvements) || value.improvements.length < 1 || !value.improvements.every(item => typeof item === 'string' && item.trim() && item.length <= 1000)) throw new Error('Invalid improvements');
+  if (!Array.isArray(value.differentialsRecognised) || !value.differentialsRecognised.every(item => typeof item === 'string' && caseData.expectedDifferentials.includes(item))) throw new Error('Invalid recognised differentials');
+  return {
+    presentation: narrative(value.presentation, 'presentation'),
+    differentials: narrative(value.differentials, 'differentials'),
+    viva: narrative(value.viva, 'viva'),
+    improvements: (value.improvements as string[]).slice(0, 3).map(item => item.trim()),
+    presentationScore: boundedInteger(value.presentationScore, 2, 'presentation score'),
+    vivaScore: boundedInteger(value.vivaScore, 3, 'viva score'),
+    differentialsRecognised: [...new Set(value.differentialsRecognised as string[])],
   };
-
-  try {
-    // Try to extract a score from the response
-    const scoreMatch = aiResponse.match(/(\d+)\s*\/\s*10/);
-    const score = scoreMatch ? Math.min(parseInt(scoreMatch[1], 10), 10) : 5;
-    const passed = score >= 7;
-
-    return {
-      ...defaultFeedback,
-      score,
-      passed,
-      overallFeedback: aiResponse,
-    };
-  } catch {
-    return defaultFeedback;
-  }
 }
 
-// ─── Route Handler ────────────────────────────────────────────────
+async function generateFeedback(caseData: CaseDefinition, session: ExamSession): Promise<ExaminerFeedback> {
+  const examination = rehydrateExamination(session, caseData);
+  const viva: ExaminerMessage[] = sessionMessages(session, caseData);
+  const evidence = JSON.stringify({ examination, presentation: session.presentation, viva });
+  const raw = await callInference([
+    { role: 'system', content: buildFeedbackPrompt(caseData) },
+    { role: 'user', content: `Candidate evidence:\n${evidence}` },
+  ]);
+  return buildFormativeFeedback(caseData, examination, parseFeedback(raw, caseData));
+}
+
+function newSession(caseData: CaseDefinition, now: number): ExamSession {
+  return { version: 1, caseId: caseData.id, caseVersion: caseData.version, startedAt: now, updatedAt: now, findings: [], answers: [] };
+}
+
+function signed(session: ExamSession, now = Date.now()): string {
+  const secret = process.env.EXAM_SESSION_SECRET || (process.env.NODE_ENV !== 'production' ? 'local-development-only-secret-change-me' : '');
+  return createExamSessionToken({ ...session, updatedAt: now }, secret);
+}
+
+function existingSession(token: unknown, caseData: CaseDefinition): ExamSession {
+  if (typeof token !== 'string') throw new InvalidExamSession('Exam session required.');
+  const secret = process.env.EXAM_SESSION_SECRET || (process.env.NODE_ENV !== 'production' ? 'local-development-only-secret-change-me' : '');
+  return readExamSessionToken(token, secret, caseData);
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const body: ExamineRequest = await request.json();
-    const { caseId, phase, userInput, conversationHistory = [], askedQuestions = [] } = body;
+    const body = await request.json() as Partial<ExamineRequest>;
+    const caseData = typeof body.caseId === 'string' ? caseCache.get(body.caseId) : undefined;
+    if (!caseData) return NextResponse.json({ error: 'Case not found.' }, { status: 400 });
+    if (typeof body.userInput !== 'string' || body.userInput.length > 6000) return NextResponse.json({ error: 'Invalid input.' }, { status: 400 });
+    const userInput = body.userInput.trim();
 
-    if (!ENGY_KEY && !SAYGM_KEY) {
-      return NextResponse.json(
-        { error: 'No API keys configured. Set ENGY_API_KEY or SAYGM_API_KEY.' },
-        { status: 500 }
-      );
-    }
-
-    const caseData = caseCache.get(caseId);
-    if (!caseData) {
-      return NextResponse.json(
-        { error: `Case not found: ${caseId}` },
-        { status: 400 }
-      );
-    }
-
-    const systemPrompt = phase === 'examine'
-      ? buildExaminerPrompt(caseData)
-      : buildSystemPrompt(caseData);
-
-    // Build message array
-    const messages: { role: string; content: string }[] = [
-      { role: 'system', content: systemPrompt },
-    ];
-
-    if (phase === 'examine') {
-      // NO conversation history — each examine call is independent
-      // The system prompt contains all case data the AI needs
-      // Just send the latest user input
-
-      if (userInput) {
-        messages.push({
-          role: 'user' as const,
-          content: `The candidate says: ${userInput}`,
+    if (body.phase === 'examine') {
+      if (!userInput) return NextResponse.json({ error: 'Describe an examination step.' }, { status: 400 });
+      const session = body.sessionToken ? existingSession(body.sessionToken, caseData) : newSession(caseData, Date.now());
+      const response = await callInference([
+        { role: 'system', content: buildFindingSelectorPrompt(caseData) },
+        { role: 'user', content: `The candidate says: ${userInput}` },
+      ]);
+      const selection = extractJson(response) as { finding_id?: unknown; correction?: unknown };
+      if (selection.finding_id === null) {
+        return NextResponse.json({
+          examinerResponse: '', finding: null,
+          clarification: typeof selection.correction === 'string' && selection.correction.trim() ? selection.correction.slice(0, 1000) : 'Please describe a specific examination step.',
+          sessionToken: signed(session), complete: false,
         });
       }
+      if (typeof selection.finding_id !== 'string' || typeof selection.correction !== 'string' && selection.correction !== null) {
+        return NextResponse.json({ error: 'Could not interpret that examination step. Please try again.' }, { status: 502 });
+      }
+      const canonical = selectExamFinding(caseData, { finding_id: selection.finding_id, correction: selection.correction });
+      const updated = recordFinding(session, { findingId: canonical.findingId, said: userInput, correction: canonical.correction });
+      return NextResponse.json({ examinerResponse: canonical.finding, finding: { ...canonical, said: userInput }, sessionToken: signed(updated), complete: false });
+    }
 
-      const aiResponse = await callInference(messages);
+    const session = body.phase === 'present' && body.sessionToken == null
+      ? newSession(caseData, Date.now())
+      : existingSession(body.sessionToken, caseData);
 
-      // Parse JSON response from AI
-      let structuredFinding: ExamineFindingResult = {
-        finding: aiResponse,
-        bodyPart: null,
-        technique: 'general',
-        normal: false,
-        correction: null,
-      };
+    if (body.phase === 'present') {
+      if (!userInput) return NextResponse.json({ error: 'Please provide your presentation.' }, { status: 400 });
+      if (session.answers.length) return NextResponse.json({ error: 'The viva has already started.' }, { status: 409 });
+      const first = caseData.vivaQuestions[0];
+      if (!first) throw new Error('Case has no viva questions');
+      const updated = { ...session, presentation: userInput };
+      return NextResponse.json({
+        examinerResponse: `Thank you. ${first.question}`,
+        vivaQuestion: { id: first.id, question: first.question }, questionCount: 1,
+        sessionToken: signed(updated), complete: false,
+      });
+    }
 
+    if (body.phase === 'viva') {
+      if (!session.presentation || !userInput) return NextResponse.json({ error: 'Invalid viva turn.' }, { status: 400 });
+      const index = session.answers.length;
+      const current = caseData.vivaQuestions[index];
+      if (!current) return NextResponse.json({ error: 'The five-question viva is complete. Feedback is ready.' }, { status: 409 });
+      const updated = { ...session, answers: [...session.answers, { questionId: current.id, answer: userInput }] };
+      const next = caseData.vivaQuestions[index + 1];
+      if (next) {
+        return NextResponse.json({
+          examinerResponse: next.question, vivaQuestion: { id: next.id, question: next.question },
+          questionCount: index + 2, sessionToken: signed(updated), complete: false,
+        });
+      }
       try {
-        // Try to extract JSON from anywhere in the response using regex
-        const jsonMatch = aiResponse.match(/\{"finding[\s\S]*?"correction":\s*(null|"[^"]*")\s*\}/);
-        const jsonStr = jsonMatch ? jsonMatch[0] : aiResponse
-          .replace(/^```json\s*/i, '')
-          .replace(/\s*```$/i, '')
-          .trim();
-        const parsed = JSON.parse(jsonStr);
-        if (parsed && typeof parsed === 'object') {
-          structuredFinding = {
-            finding: parsed.finding || null,
-            bodyPart: parsed.body_part || null,
-            technique: parsed.technique || 'general',
-            normal: parsed.normal === true,
-            correction: parsed.correction || null,
-          };
-        }
-      } catch {
-        // AI didn't return valid JSON — use raw text as finding
-      }
-
-      return NextResponse.json({
-        examinerResponse: aiResponse,
-        finding: structuredFinding,
-        complete: false,
-        askedQuestions,
-      } as ExamineResponse);
-
-    } else if (phase === 'present') {
-      // Initial presentation from the candidate
-      messages.push({
-        role: 'user',
-        content: `The candidate has examined the patient and presents their findings:\n\n${userInput}\n\nRespond as an examiner — prompt them for more if needed, but do not reveal missed findings.`,
-      });
-
-      const aiResponse = await callInference(messages);
-
-      return NextResponse.json({
-        examinerResponse: aiResponse,
-        complete: false,
-        askedQuestions,
-      } as ExamineResponse);
-
-    } else if (phase === 'viva') {
-      // Replay presentation for context, then add the viva Q&A
-      messages.push({
-        role: 'user',
-        content: `The candidate presented their findings. Now conduct the viva. Ask probing PACES-style questions.`,
-      });
-
-      // Add conversation history
-      for (const msg of conversationHistory) {
-        messages.push({
-          role: msg.role === 'examiner' ? 'assistant' : 'user',
-          content: msg.content,
-        });
-      }
-
-      // Determine the next viva question
-      const questionIndex = askedQuestions.length;
-      let nextQuestion = '';
-
-      if (questionIndex < VIVA_QUESTIONS.length) {
-        nextQuestion = VIVA_QUESTIONS[questionIndex];
-      }
-
-      if (!userInput && nextQuestion) {
-        // First viva turn — ask the question
+        const feedback = await generateFeedback(caseData, updated);
+        return NextResponse.json({ examinerResponse: 'Thank you. That concludes the viva.', feedback, sessionToken: signed(updated), complete: true, questionCount: 5 });
+      } catch (error) {
+        console.error('Feedback generation error:', error instanceof Error ? error.message : 'Unknown error');
         return NextResponse.json({
-          examinerResponse: nextQuestion,
-          vivaQuestion: nextQuestion,
-          complete: false,
-          askedQuestions: [...askedQuestions, nextQuestion],
-        } as ExamineResponse);
+          error: 'Your final answer is saved, but feedback could not be generated. Please retry.',
+          sessionToken: signed(updated), feedbackReady: true, questionCount: 5,
+        }, { status: 502 });
       }
-
-      // The candidate answered — acknowledge and ask next question
-      messages.push({
-        role: 'user',
-        content: `Candidate's answer: ${userInput}\n\n${nextQuestion ? `Acknowledge briefly and ask: ${nextQuestion}` : 'If no more questions, tell them the viva is complete and you will now provide feedback.'}`,
-      });
-
-      const aiResponse = await callInference(messages);
-
-      const isComplete = questionIndex >= VIVA_QUESTIONS.length ||
-        /viva (is )?complete|all questions|moving on to feedback|let me give you feedback|overall score/i.test(aiResponse);
-
-      if (isComplete) {
-        // Viva done — generate structured feedback
-        const allMessages = [
-          { role: 'system' as const, content: systemPrompt },
-          { role: 'user' as const, content: `The candidate's viva is now complete. Provide structured PACES feedback covering: presentation quality, key signs identified vs missed, differential diagnosis reasoning, viva performance, overall score out of 10, and 2-3 actionable improvements.` },
-          ...conversationHistory.map(m => ({
-            role: (m.role === 'examiner' ? 'assistant' : 'user') as 'assistant' | 'user',
-            content: m.content,
-          })),
-          { role: 'user' as const, content: `Now provide the structured feedback.` },
-        ];
-
-        const feedbackResponse = await callInference(allMessages);
-        const feedback = parseFeedback(feedbackResponse);
-
-        return NextResponse.json({
-          examinerResponse: feedbackResponse,
-          feedback,
-          complete: true,
-          askedQuestions,
-        } as ExamineResponse);
-      }
-
-      return NextResponse.json({
-        examinerResponse: aiResponse,
-        vivaQuestion: nextQuestion || 'Thank you. The viva is complete.',
-        complete: false,
-        askedQuestions: nextQuestion ? [...askedQuestions, nextQuestion] : askedQuestions,
-      } as ExamineResponse);
-
-    } else if (phase === 'feedback') {
-      // Generate structured feedback
-      messages.push({
-        role: 'user',
-        content: `The candidate has completed the station. Provide structured PACES feedback covering: presentation quality, key signs identified vs missed, differential diagnosis reasoning, viva performance, overall score out of 10 (7+ = pass), and 2-3 actionable improvements.`,
-      });
-
-      for (const msg of conversationHistory) {
-        messages.push({
-          role: msg.role === 'examiner' ? 'assistant' : 'user',
-          content: msg.content,
-        });
-      }
-
-      const aiResponse = await callInference(messages);
-      const feedback = parseFeedback(aiResponse);
-
-      return NextResponse.json({
-        examinerResponse: aiResponse,
-        feedback,
-        complete: true,
-        askedQuestions,
-      } as ExamineResponse);
     }
 
-    return NextResponse.json(
-      { error: `Unknown phase: ${phase}` },
-      { status: 400 }
-    );
+    if (body.phase === 'feedback') {
+      if (!session.presentation || session.answers.length !== caseData.vivaQuestions.length) return NextResponse.json({ error: 'Complete all five viva answers before requesting feedback.' }, { status: 409 });
+      const feedback = await generateFeedback(caseData, session);
+      return NextResponse.json({ examinerResponse: 'Formative feedback generated.', feedback, sessionToken: signed(session), complete: true });
+    }
+
+    return NextResponse.json({ error: 'Unknown phase.' }, { status: 400 });
   } catch (error) {
-    console.error('Examine API error:', error);
-    return NextResponse.json(
-      {
-        examinerResponse: 'I apologise, there was an error processing your response. Please try again.',
-        complete: false,
-      } as ExamineResponse,
-      { status: 200 }
-    );
+    if (error instanceof InvalidExamSession) return NextResponse.json({ error: error.message }, { status: 401 });
+    if (error instanceof Error && error.message.includes('secret is not configured')) return NextResponse.json({ error: 'Exam session security is not configured.' }, { status: 500 });
+    console.error('Examine API error:', error instanceof Error ? error.message : 'Unknown error');
+    return NextResponse.json({ error: 'The examiner could not process that step. Please try again.' }, { status: 502 });
   }
 }

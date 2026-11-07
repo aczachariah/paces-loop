@@ -42,7 +42,7 @@ export const FeedbackReport: React.FC<FeedbackReportProps> = ({
           Examiner Feedback Report:
         </strong>
         <p style={{ margin: 0, color: '#4b5563', fontSize: '0.925rem', lineHeight: '1.6', fontStyle: 'italic' }}>
-          "{feedback}"
+          &ldquo;{feedback}&rdquo;
         </p>
       </div>
     </div>

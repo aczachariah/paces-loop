@@ -16,57 +16,22 @@ interface VivaChatProps {
   onSendMessage: (text: string) => void;
   loading: boolean;
   isComplete: boolean;
+  questionCount: number;
+  totalQuestions: number;
 }
 
-export const VivaChat: React.FC<VivaChatProps> = ({ messages, onSendMessage, loading, isComplete }) => {
+export const VivaChat: React.FC<VivaChatProps> = ({ messages, onSendMessage, loading, isComplete, questionCount, totalQuestions }) => {
   const [input, setInput] = useState('');
   const [ttsState, setTtsState] = useState<TTSState>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
   const audioRefs = useRef<{ [key: number]: HTMLAudioElement }>({});
+  const playAudioRef = useRef<(idx: number, audioData: string) => void>(() => {});
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Auto-generate TTS for new examiner messages
-  useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg && lastMsg.role === 'examiner') {
-      const idx = messages.length - 1;
-      // Only fetch if we haven't already
-      setTtsState(prev => {
-        if (prev[idx]?.audioData || prev[idx]?.loading) return prev;
-        return { ...prev, [idx]: { audioData: null, playing: false, loading: true } };
-      });
-
-      // Fetch TTS audio for the examiner's message
-      fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: lastMsg.content,
-          voice: 'en-GB-RyanNeural',
-        }),
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.audioData) {
-            setTtsState(prev => ({
-              ...prev,
-              [idx]: { audioData: data.audioData, playing: false, loading: false },
-            }));
-            // Auto-play after a brief delay
-            setTimeout(() => playAudio(idx, data.audioData), 300);
-          }
-        })
-        .catch(() => {
-          setTtsState(prev => ({
-            ...prev,
-            [idx]: { audioData: null, playing: false, loading: false },
-          }));
-        });
-    }
-  }, [messages]);
+  // Auto-generate TTS after the stable playback callback is declared below.
 
   const playAudio = useCallback((idx: number, audioData: string) => {
     try {
@@ -108,6 +73,30 @@ export const VivaChat: React.FC<VivaChatProps> = ({ messages, onSendMessage, loa
       setTtsState(prev => ({ ...prev, [idx]: { ...prev[idx], playing: false } }));
     }
   }, []);
+
+  playAudioRef.current = playAudio;
+
+  useEffect(() => {
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== 'examiner') return;
+    const idx = messages.length - 1;
+    setTtsState(prev => {
+      if (prev[idx]?.audioData || prev[idx]?.loading) return prev;
+      return { ...prev, [idx]: { audioData: null, playing: false, loading: true } };
+    });
+    const controller = new AbortController();
+    fetch('/api/tts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+      body: JSON.stringify({ text: lastMsg.content, voice: 'en-GB-RyanNeural' }),
+    }).then(res => res.json()).then(data => {
+      if (!data.audioData) throw new Error('No audio returned');
+      setTtsState(prev => ({ ...prev, [idx]: { audioData: data.audioData, playing: false, loading: false } }));
+      setTimeout(() => playAudioRef.current(idx, data.audioData), 300);
+    }).catch(() => {
+      setTtsState(prev => ({ ...prev, [idx]: { audioData: null, playing: false, loading: false } }));
+    });
+    return () => controller.abort();
+  }, [messages]);
 
   const togglePlayback = useCallback((idx: number) => {
     const state = ttsState[idx];
@@ -164,7 +153,7 @@ export const VivaChat: React.FC<VivaChatProps> = ({ messages, onSendMessage, loa
           fontSize: '0.75rem',
           fontWeight: '600',
         }}>
-          Examiner
+          Question {Math.min(questionCount, totalQuestions)} / {totalQuestions}
         </span>
       </div>
 

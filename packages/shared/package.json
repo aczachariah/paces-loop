@@ -2,13 +2,17 @@
   "name": "@paces/shared",
   "version": "0.1.0",
   "private": true,
-  "main": "./src/index.ts",
+  "main": "./src/client.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/client.ts",
+    "./client": "./src/client.ts",
+    "./server": "./src/server.ts"
+  },
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "tsx src/stations/cardiovascular.test.ts"
+    "test": "tsx --conditions=react-server --test src/**/*.test.ts"
   },
-  "dependencies": {},
   "devDependencies": {
     "tsx": "^4.21.1"
   }

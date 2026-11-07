@@ -6,19 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsx --conditions=react-server --test src/**/*.test.ts"
   },
   "dependencies": {
     "@paces/shared": "workspace:*",
     "@paces/station-engine": "workspace:*",
     "next": "^14.1.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.35",
+    "tsx": "^4.21.1",
     "typescript": "^5.3.3"
   }
 }
