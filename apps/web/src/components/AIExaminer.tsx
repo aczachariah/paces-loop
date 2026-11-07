@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { CaseSummary, ExamRecord, ExaminerFeedback, ExaminerMessage } from '@paces/shared';
 import { publicCases } from '@paces/shared/client';
 import { getExamTimerDeadline, getExamTimerTick } from '@paces/shared/client';
@@ -9,6 +9,7 @@ import { PresentationInput } from './PresentationInput';
 import { VivaChat } from './VivaChat';
 import { AIScoreFeedback } from './AIScoreFeedback';
 import ExaminingPhase from './ExaminingPhase';
+import { buildVivaRecoveryRequest } from '../lib/examRequest';
 
 type Phase = 'select-case' | 'briefing' | 'examining' | 'presenting' | 'viva' | 'feedback' | 'loading';
 const SYSTEM_META: Record<string, { label: string; icon: string }> = {
@@ -45,18 +46,23 @@ export const AIExaminer: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedbackReady, setFeedbackReady] = useState(false);
+  const [finalAnswer, setFinalAnswer] = useState<string | null>(null);
+  const [answersRecorded, setAnswersRecorded] = useState(0);
+  const phaseRef = useRef<Phase>('select-case');
+  const transitionTo = useCallback((next: Phase) => { phaseRef.current = next; setPhase(next); }, []);
 
   const handleExamComplete = useCallback(() => {
-    setPhase(previous => previous === 'examining' ? 'presenting' : previous);
+    if (phaseRef.current !== 'examining') return;
+    transitionTo('presenting');
     setExamDeadline(null);
     setError(null);
-  }, []);
+  }, [transitionTo]);
 
   const beginExam = useCallback(() => {
     setExamTimeRemaining(540);
     setExamDeadline(getExamTimerDeadline(null, Date.now(), 540));
-    setPhase('examining');
-  }, []);
+    transitionTo('examining');
+  }, [transitionTo]);
 
   useEffect(() => {
     if (phase !== 'examining' || examDeadline === null) return;
@@ -72,16 +78,21 @@ export const AIExaminer: React.FC = () => {
   }, [phase, examDeadline, handleExamComplete]);
 
   const handleSelectCase = useCallback((item: CaseSummary) => {
-    setCurrentCase(item); setPhase('briefing'); setExamination([]); setConversation([]);
-    setSessionToken(null); setExamDeadline(null); setSubmitting(false); setFeedbackReady(false);
+    setCurrentCase(item); transitionTo('briefing'); setExamination([]); setConversation([]);
+    setSessionToken(null); setExamDeadline(null); setSubmitting(false); setFeedbackReady(false); setFinalAnswer(null); setAnswersRecorded(0);
     setExaminerFeedback(null); setExamTimeRemaining(540); setAskedQuestionIds([]); setError(null);
-  }, []);
+  }, [transitionTo]);
 
   const handleFinding = useCallback((finding: ExamRecord, token: string) => {
+    if (phaseRef.current !== 'examining') return;
     setSessionToken(token);
     setExamination(previous => previous.some(item => item.findingId === finding.findingId)
       ? previous.map(item => item.findingId === finding.findingId ? finding : item)
       : [...previous, finding]);
+  }, []);
+
+  const handleSessionToken = useCallback((token: string) => {
+    if (phaseRef.current === 'examining') setSessionToken(token);
   }, []);
 
   const handlePresentationSubmit = useCallback(async (text: string) => {
@@ -100,14 +111,15 @@ export const AIExaminer: React.FC = () => {
         { role: 'examiner', content: data.examinerResponse, questionId: data.vivaQuestion.id },
       ]);
       setAskedQuestionIds([data.vivaQuestion.id]);
+      setAnswersRecorded(0);
       setSessionToken(data.sessionToken);
-      setPhase('viva');
+      transitionTo('viva');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Please try again.');
     } finally {
       setSubmitting(false);
     }
-  }, [currentCase, sessionToken, submitting]);
+  }, [currentCase, sessionToken, submitting, transitionTo]);
 
   const handleVivaMessage = useCallback(async (text: string) => {
     if (!currentCase || submitting) return;
@@ -126,19 +138,23 @@ export const AIExaminer: React.FC = () => {
       if (data.sessionToken) setSessionToken(data.sessionToken);
       if (data.feedbackReady) {
         setFeedbackReady(true);
+        setAnswersRecorded(5);
+        setFinalAnswer(text);
       }
       if (!response.ok) throw new Error(data.error || 'Unable to process your answer.');
       if (data.complete && data.feedback) {
         setConversation(previous => [...previous, { role: 'examiner', content: data.examinerResponse }]);
-        setExaminerFeedback(data.feedback); setPhase('feedback');
+        setExaminerFeedback(data.feedback); transitionTo('feedback');
       } else {
         setConversation(previous => [...previous, { role: 'examiner', content: data.examinerResponse, questionId: data.vivaQuestion.id }]);
         setAskedQuestionIds(previous => [...previous, data.vivaQuestion.id]);
+        setAnswersRecorded(previous => previous + 1);
       }
     } catch (caught) {
       if (finalAnswer) {
         setConversation(updated);
         setFeedbackReady(true);
+        setFinalAnswer(text);
       } else {
         setConversation(conversation);
       }
@@ -146,33 +162,33 @@ export const AIExaminer: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
-  }, [currentCase, conversation, askedQuestionIds, sessionToken, submitting]);
+  }, [currentCase, conversation, askedQuestionIds, sessionToken, submitting, transitionTo]);
 
   const handleFeedbackRetry = useCallback(async () => {
-    if (!currentCase || !sessionToken || submitting) return;
+    if (!currentCase || !sessionToken || !finalAnswer || submitting) return;
     setSubmitting(true); setError(null);
     try {
       const response = await fetch('/api/examine', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         signal: AbortSignal.timeout(35000),
-        body: JSON.stringify({ caseId: currentCase.id, phase: 'feedback', userInput: '', sessionToken }),
+        body: JSON.stringify({ caseId: currentCase.id, ...buildVivaRecoveryRequest(answersRecorded, 5, finalAnswer, sessionToken) }),
       });
       const data = await response.json();
       if (!response.ok || !data.feedback) throw new Error(data.error || 'Unable to generate feedback.');
       setSessionToken(data.sessionToken);
-      setExaminerFeedback(data.feedback); setFeedbackReady(false); setPhase('feedback');
+      setExaminerFeedback(data.feedback); setFeedbackReady(false); transitionTo('feedback');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate feedback. Please try again.');
     } finally {
       setSubmitting(false);
     }
-  }, [currentCase, sessionToken, submitting]);
+  }, [currentCase, sessionToken, submitting, transitionTo, finalAnswer, answersRecorded]);
 
   const handleTryAnother = useCallback(() => {
-    setPhase('select-case'); setCurrentCase(null); setExamination([]); setConversation([]);
+    transitionTo('select-case'); setCurrentCase(null); setExamination([]); setConversation([]);
     setExaminerFeedback(null); setAskedQuestionIds([]); setError(null);
-    setSessionToken(null); setExamDeadline(null); setExamTimeRemaining(540); setFeedbackReady(false);
-  }, []);
+    setSessionToken(null); setExamDeadline(null); setExamTimeRemaining(540); setFeedbackReady(false); setFinalAnswer(null); setAnswersRecorded(0);
+  }, [transitionTo]);
 
   const labels: [Phase, string][] = [['select-case', 'Select Case'], ['briefing', 'Brief'], ['examining', 'Examine'], ['presenting', 'Present'], ['viva', 'Viva'], ['feedback', 'Feedback']];
   const currentIndex = labels.findIndex(item => item[0] === phase);
@@ -184,7 +200,7 @@ export const AIExaminer: React.FC = () => {
     {phase === 'loading' && <p role="status" style={{ textAlign: 'center', padding: '4rem', color: '#374151' }}>The examiner is preparing your first question…</p>}
     {phase === 'select-case' && <CaseSelector onSelect={handleSelectCase} />}
     {phase === 'briefing' && currentCase && <CaseBrief brief={currentCase.brief} onComplete={beginExam} />}
-    {phase === 'examining' && currentCase && <ExaminingPhase caseData={currentCase} timeRemaining={examTimeRemaining} findings={examination} onFinding={handleFinding} onSessionToken={setSessionToken} sessionToken={sessionToken} onComplete={handleExamComplete} />}
+    {phase === 'examining' && currentCase && <ExaminingPhase caseData={currentCase} timeRemaining={examTimeRemaining} findings={examination} onFinding={handleFinding} onSessionToken={handleSessionToken} sessionToken={sessionToken} onComplete={handleExamComplete} />}
     {phase === 'presenting' && <PresentationInput onSubmit={handlePresentationSubmit} loading={submitting} />}
     {phase === 'viva' && <>
       <VivaChat messages={conversation} onSendMessage={handleVivaMessage} loading={submitting} isComplete={feedbackReady} questionCount={askedQuestionIds.length} totalQuestions={5} />

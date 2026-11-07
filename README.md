@@ -74,9 +74,10 @@ The test suite uses mocked inference and covers canonical examination findings, 
 
 ### Exam integrity and environment
 
-- Clinical case definitions are server-only; the browser receives neutral public case metadata and findings revealed by the examiner.
+- Clinical case definitions and the public-to-private case mapping are server-only; the browser receives neutral public case metadata and findings revealed by the examiner.
 - The examination, presentation and viva answers are carried in an HMAC-signed transcript with a two-hour lifetime.
 - `EXAM_SESSION_SECRET` must be set to a strong random value of at least 32 characters in production. The fallback secret is for local development only.
 - Configure `ENGY_API_KEY` and optionally `SAYGM_API_KEY` as server-side environment variables. See `.env.example`.
 - The LLM selects known examination steps and assesses free-text answers. Clinical findings, viva progression and examination coverage are deterministic.
 - Scores are formative practice feedback, not an official PACES result or validated pass prediction. Case content remains draft pending clinician review.
+- Examiner speech is disabled until a hosted TTS provider is configured; the viva remains available as text. The old local shell-based `edge-tts` path was removed because it was unsafe and incompatible with serverless deployment.

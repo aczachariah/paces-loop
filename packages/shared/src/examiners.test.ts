@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { cardioCase1, allCases } from './stations/cases';
+import { resolvePublicCase } from './caseLookup';
 import { publicCases } from './publicCases';
 import { buildFormativeFeedback, getNextVivaQuestion, isExplicitExamCompletion, selectExamFinding } from './examiners';
 
@@ -41,7 +42,11 @@ test('public metadata hides diagnoses and confidential findings', () => {
     assert.equal('title' in item, false);
     assert.equal('clinicalData' in item, false);
     assert.equal(item.label.includes('Mitral'), false);
+    assert.match(item.id, /^[a-z]+-[a-z0-9]+$/);
+    assert.equal(/mitral|regurg|aortic|stenosis|copd|hepat|lesion/i.test(item.id), false);
   }
+  assert.equal(resolvePublicCase('cardio-01')?.id, cardioCase1.id);
+  assert.equal(resolvePublicCase(cardioCase1.id), undefined);
 });
 
 test('case definitions have unique finding IDs and case-specific viva guidance', () => {

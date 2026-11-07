@@ -5,7 +5,7 @@ import { cardioCase1 } from '@paces/shared/server';
 
 const secret = 'test-only-secret-with-at-least-32-characters';
 const session: ExamSession = {
-  version: 1, caseId: cardioCase1.id, caseVersion: cardioCase1.version,
+  version: 1, caseId: 'cardio-01', caseVersion: cardioCase1.version,
   startedAt: 1_000, updatedAt: 1_000, findings: [], answers: [],
 };
 

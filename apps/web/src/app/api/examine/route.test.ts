@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { createHmac } from 'node:crypto';
 const require = createRequire(import.meta.url);
 const { POST } = require('./route') as typeof import('./route');
-const caseId = 'cardio-mitral-regurg';
+const caseId = 'cardio-01';
 
 async function post(body: Record<string, unknown>) {
   const request = new NextRequest('http://localhost/api/examine', {
@@ -160,6 +160,25 @@ test('fifth-answer provider failure preserves progress for an explicit feedback 
   assert.equal(retried.body.complete, true);
   assert.equal(retried.body.feedback.assessmentKind, 'formative');
   assert.equal(feedbackCalls, 2);
+});
+
+test('ambiguous final-answer retry recovers feedback without creating a sixth turn', async t => {
+  const calls = mockInference(t, { finding_id: 'hands', correction: null }, validFeedback);
+  const examined = await post({ caseId, phase: 'examine', userInput: 'Inspect hands' });
+  const presented = await post({ caseId, phase: 'present', userInput: 'Presentation', sessionToken: examined.body.sessionToken });
+  let token = presented.body.sessionToken;
+  for (let answer = 1; answer <= 4; answer++) {
+    token = (await post({ caseId, phase: 'viva', userInput: `Answer ${answer}`, sessionToken: token })).body.sessionToken;
+  }
+  const recovered = await post({ caseId, phase: 'feedback', userInput: 'Final answer five', sessionToken: token });
+  assert.equal(recovered.status, 200);
+  assert.equal(recovered.body.complete, true);
+  const feedbackEvidence = calls[1].messages[1].content;
+  assert.equal((feedbackEvidence.match(/Final answer five/g) || []).length, 1);
+  const extra = await post({ caseId, phase: 'viva', userInput: 'Sixth answer', sessionToken: recovered.body.sessionToken });
+  assert.equal(extra.status, 409);
+  const premature = await post({ caseId, phase: 'feedback', userInput: 'Too early', sessionToken: presented.body.sessionToken });
+  assert.equal(premature.status, 409);
 });
 
 async function completeViva(initialToken: string): Promise<string> {

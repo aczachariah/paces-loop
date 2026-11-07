@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { CaseDefinition, ExaminerFeedback, ExaminerMessage } from '@paces/shared';
-import { allCases, buildFormativeFeedback, selectExamFinding } from '@paces/shared/server';
+import { buildFormativeFeedback, resolvePublicCase, selectExamFinding } from '@paces/shared/server';
 import type { FeedbackAssessment } from '@paces/shared/server';
 import {
   createExamSessionToken, InvalidExamSession, readExamSessionToken, recordFinding,
   rehydrateExamination, sessionMessages, type ExamSession,
 } from '../../../lib/examSession';
 
-const caseCache = new Map(allCases.map(item => [item.id, item]));
+const caseCache = { get: resolvePublicCase };
 const ENGY_KEY = process.env.ENGY_API_KEY || process.env.HERMES_CUSTOM_API_ENGY_AI_API_KEY || '';
 const SAYGM_KEY = process.env.SAYGM_API_KEY || '';
 
@@ -124,8 +124,8 @@ async function generateFeedback(caseData: CaseDefinition, session: ExamSession):
   return buildFormativeFeedback(caseData, examination, parseFeedback(raw, caseData));
 }
 
-function newSession(caseData: CaseDefinition, now: number): ExamSession {
-  return { version: 1, caseId: caseData.id, caseVersion: caseData.version, startedAt: now, updatedAt: now, findings: [], answers: [] };
+function newSession(publicId: string, caseData: CaseDefinition, now: number): ExamSession {
+  return { version: 1, caseId: publicId, caseVersion: caseData.version, startedAt: now, updatedAt: now, findings: [], answers: [] };
 }
 
 function signed(session: ExamSession, now = Date.now()): string {
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (body.phase === 'examine') {
       if (!userInput) return NextResponse.json({ error: 'Describe an examination step.' }, { status: 400 });
-      const session = body.sessionToken ? existingSession(body.sessionToken, caseData) : newSession(caseData, Date.now());
+      const session = body.sessionToken ? existingSession(body.sessionToken, caseData) : newSession(body.caseId as string, caseData, Date.now());
       const response = await callInference([
         { role: 'system', content: buildFindingSelectorPrompt(caseData) },
         { role: 'user', content: `The candidate says: ${userInput}` },
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const session = body.phase === 'present' && body.sessionToken == null
-      ? newSession(caseData, Date.now())
+      ? newSession(body.caseId as string, caseData, Date.now())
       : existingSession(body.sessionToken, caseData);
 
     if (body.phase === 'present') {
@@ -213,9 +213,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (body.phase === 'feedback') {
-      if (!session.presentation || session.answers.length !== caseData.vivaQuestions.length) return NextResponse.json({ error: 'Complete all five viva answers before requesting feedback.' }, { status: 409 });
-      const feedback = await generateFeedback(caseData, session);
-      return NextResponse.json({ examinerResponse: 'Formative feedback generated.', feedback, sessionToken: signed(session), complete: true });
+      let updated = session;
+      if (session.answers.length === caseData.vivaQuestions.length - 1) {
+        if (!userInput) return NextResponse.json({ error: 'Your final answer is needed to recover feedback.' }, { status: 409 });
+        const current = caseData.vivaQuestions[session.answers.length];
+        updated = { ...session, answers: [...session.answers, { questionId: current.id, answer: userInput }] };
+      } else if (session.answers.length !== caseData.vivaQuestions.length) {
+        return NextResponse.json({ error: 'Complete all five viva answers before requesting feedback.' }, { status: 409 });
+      }
+      if (!updated.presentation) return NextResponse.json({ error: 'Complete the presentation before requesting feedback.' }, { status: 409 });
+      const feedback = await generateFeedback(caseData, updated);
+      return NextResponse.json({ examinerResponse: 'Formative feedback generated.', feedback, sessionToken: signed(updated), complete: true });
     }
 
     return NextResponse.json({ error: 'Unknown phase.' }, { status: 400 });

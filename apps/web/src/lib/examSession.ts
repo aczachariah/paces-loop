@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { CaseDefinition, ExamRecord } from '@paces/shared';
+import { resolvePublicCase } from '@paces/shared/server';
 
 const MAX_AGE_MS = 2 * 60 * 60 * 1000;
 
@@ -38,7 +39,7 @@ export function readExamSessionToken(token: string, secret: string, caseData: Ca
   let session: ExamSession;
   try { session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')); }
   catch { throw new InvalidExamSession('Invalid exam session.'); }
-  if (session.version !== 1 || session.caseId !== caseData.id || session.caseVersion !== caseData.version) throw new InvalidExamSession('This case has changed. Please restart the station.');
+  if (session.version !== 1 || resolvePublicCase(session.caseId) !== caseData || session.caseVersion !== caseData.version) throw new InvalidExamSession('This case has changed. Please restart the station.');
   if (!Number.isFinite(session.startedAt) || !Number.isFinite(session.updatedAt) || now - session.startedAt > MAX_AGE_MS || session.updatedAt < session.startedAt || session.updatedAt > now + 60_000) throw new InvalidExamSession('The exam session has expired.');
   if (!Array.isArray(session.findings) || session.findings.length > caseData.clinicalData.examFindings.length || !Array.isArray(session.answers) || session.answers.length > 5) throw new InvalidExamSession('Invalid exam session.');
   if (session.presentation !== undefined && (typeof session.presentation !== 'string' || session.presentation.length > 6000)) throw new InvalidExamSession('Invalid exam session.');

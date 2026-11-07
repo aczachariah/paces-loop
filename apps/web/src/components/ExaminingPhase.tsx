@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { BodySystem, ExamRecord } from '@paces/shared';
 import { isExplicitExamCompletion } from '@paces/shared/client';
+import { createRequestGeneration, shouldApplyExaminationResponse } from '../lib/examRequest';
 
 const SYSTEM_DEFS: { id: BodySystem; label: string; icon: string }[] = [
   { id: 'hands', label: 'Hands & Arms', icon: '🤲' },
@@ -54,19 +55,32 @@ export default function ExaminingPhase({ caseData, timeRemaining, findings, onFi
   const loadingRef = useRef(false);
   const lastSubmitRef = useRef(0);
   const submitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestGenerationRef = useRef(createRequestGeneration());
+  const mountedRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
   const findingsEndRef = useRef<HTMLDivElement>(null);
   const minutes = Math.floor(timeRemaining / 60);
 
   useEffect(() => { findingsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [findings]);
   useEffect(() => () => {
+    mountedRef.current = false;
+    requestGenerationRef.current.invalidate();
+    abortRef.current?.abort();
     recognitionRef.current?.abort();
     if (submitTimerRef.current) clearTimeout(submitTimerRef.current);
   }, []);
 
+  const finishExam = useCallback(() => {
+    requestGenerationRef.current.invalidate();
+    abortRef.current?.abort();
+    onComplete();
+  }, [onComplete]);
+
   const sendExamine = useCallback(async (text: string) => {
     const said = text.trim();
     if (!said || loadingRef.current) return;
-    if (isExplicitExamCompletion(said)) { onComplete(); return; }
+    if (isExplicitExamCompletion(said)) { finishExam(); return; }
+    const generation = requestGenerationRef.current.begin();
     loadingRef.current = true;
     lastSubmitRef.current = Date.now();
     setExamLoading(true);
@@ -75,6 +89,7 @@ export default function ExaminingPhase({ caseData, timeRemaining, findings, onFi
     recognitionRef.current?.abort();
     setIsListening(false);
     const controller = new AbortController();
+    abortRef.current = controller;
     const timeout = setTimeout(() => controller.abort(), 35000);
     try {
       const response = await fetch('/api/examine', {
@@ -82,20 +97,24 @@ export default function ExaminingPhase({ caseData, timeRemaining, findings, onFi
         body: JSON.stringify({ caseId: caseData.id, phase: 'examine', userInput: said, sessionToken }),
       });
       const data = await response.json();
+      if (!shouldApplyExaminationResponse(requestGenerationRef.current, generation, mountedRef.current)) return;
       if (!response.ok) throw new Error(data.error || 'Unable to process this examination step.');
       if (!data.sessionToken) throw new Error('The examination session could not be saved. Please try again.');
       onSessionToken(data.sessionToken);
       if (data.finding) onFinding(data.finding as ExamRecord, data.sessionToken);
       else setClarification(data.clarification || 'Please describe a specific examination step.');
     } catch (caught) {
+      if (!shouldApplyExaminationResponse(requestGenerationRef.current, generation, mountedRef.current)) return;
       setError(caught instanceof Error && caught.name === 'AbortError' ? 'The examiner took too long. Please try again.' : caught instanceof Error ? caught.message : 'Please try again.');
     } finally {
       clearTimeout(timeout);
-      setTranscript('');
-      setExamLoading(false);
-      loadingRef.current = false;
+      if (mountedRef.current && requestGenerationRef.current.isCurrent(generation)) {
+        setTranscript('');
+        setExamLoading(false);
+        loadingRef.current = false;
+      }
     }
-  }, [caseData.id, onComplete, onFinding, onSessionToken, sessionToken]);
+  }, [caseData.id, finishExam, onFinding, onSessionToken, sessionToken]);
 
   const toggleListening = useCallback(() => {
     if (isListening) { recognitionRef.current?.stop(); setIsListening(false); return; }
@@ -158,7 +177,7 @@ export default function ExaminingPhase({ caseData, timeRemaining, findings, onFi
       <button type="button" onClick={toggleListening} disabled={examLoading} aria-label={isListening ? 'Stop microphone' : 'Start microphone'} style={{ padding: '0.75rem', borderRadius: '50%', border: 'none', background: isListening ? '#ef4444' : '#3b82f6', color: '#fff', cursor: 'pointer' }}>{isListening ? '■' : '🎤'}</button>
       <textarea value={transcript} onChange={event => setTranscript(event.target.value)} disabled={examLoading || isListening} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendExamine(transcript); } }} placeholder={isListening ? 'Listening…' : examLoading ? 'Processing…' : 'Describe an examination step…'} aria-label="Examination step" rows={2} style={{ flex: 1, minWidth: '220px', padding: '0.65rem', borderRadius: '6px', border: '1px solid #d1d5db', resize: 'vertical' }} />
       <button type="button" onClick={() => sendExamine(transcript)} disabled={examLoading || isListening || !transcript.trim()} style={{ padding: '0.7rem 1rem', borderRadius: '6px', border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer' }}>Examine</button>
-      <button type="button" onClick={onComplete} style={{ padding: '0.7rem 1rem', borderRadius: '6px', border: '1px solid #10b981', background: '#fff', color: '#047857', cursor: 'pointer' }}>Present →</button>
+      <button type="button" onClick={finishExam} style={{ padding: '0.7rem 1rem', borderRadius: '6px', border: '1px solid #10b981', background: '#fff', color: '#047857', cursor: 'pointer' }}>Present →</button>
     </div>
   </div>;
 }
