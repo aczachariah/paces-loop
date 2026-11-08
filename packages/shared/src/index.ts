@@ -3,6 +3,7 @@
  */
 
 export * from './types';
+export type { PracticeMode } from './pilotFlow';
 
 export const formatDuration = (minutes: number): string => {
   return `${minutes} mins`;

@@ -28,7 +28,7 @@ test('Strict Mode development effect replay accepts examination responses', asyn
   const root = createRoot(document.getElementById('root')!);
   await act(async () => {
     root.render(React.createElement(React.StrictMode, null, React.createElement(ExaminingPhase, {
-      caseData: { id: 'cardio-01', brief: 'Brief' }, timeRemaining: 540, findings: [], sessionToken: null,
+      caseData: { id: 'cardio-01', brief: 'Brief' }, timeRemaining: 540, findings: [], sessionToken: null, mode: 'mock' as const,
       onFinding: finding => findings.push(finding.findingId), onSessionToken: token => tokens.push(token), onComplete: () => {},
     })));
   });

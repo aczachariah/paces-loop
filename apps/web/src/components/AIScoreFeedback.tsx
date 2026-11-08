@@ -1,33 +1,45 @@
-'use client';
-
 import React from 'react';
 import type { ExaminerFeedback } from '@paces/shared';
 
-export const AIScoreFeedback: React.FC<{ feedback: ExaminerFeedback; onTryAnother: () => void }> = ({ feedback, onTryAnother }) => {
-  const section = (title: string, content: string) => <section style={{ background: '#f9fafb', padding: '1rem', borderRadius: '6px', marginBottom: '0.75rem' }}>
-    <h4 style={{ margin: '0 0 0.5rem', color: '#374151' }}>{title}</h4>
-    <p style={{ margin: 0, color: '#4b5563', lineHeight: 1.6, whiteSpace: 'pre-line' }}>{content}</p>
-  </section>;
-  const list = (title: string, items: string[], empty: string) => <section style={{ marginBottom: '1rem' }}>
-    <h4 style={{ color: '#374151' }}>{title}</h4>
-    {items.length ? <ul style={{ color: '#4b5563', lineHeight: 1.6 }}>{items.map(item => <li key={item}>{item}</li>)}</ul> : <p style={{ color: '#6b7280' }}>{empty}</p>}
-  </section>;
-  return <div style={{ background: '#fff', borderRadius: '8px', boxShadow: '0 4px 6px -1px #0001', padding: '2rem', maxWidth: '760px', margin: '0 auto' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-      <h3 style={{ margin: 0, color: '#1f2937' }}>Examiner Feedback</h3>
-      <span style={{ background: '#dbeafe', color: '#1e40af', padding: '0.25rem 0.75rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 700 }}>FORMATIVE PRACTICE</span>
+interface Props {
+  feedback: ExaminerFeedback;
+  onRetry: () => void;
+  onTryAnother: () => void;
+}
+
+export const AIScoreFeedback: React.FC<Props> = ({ feedback, onRetry, onTryAnother }) => {
+  const [reasoning, ...nextSteps] = feedback.overallFeedback.split(/\n\s*\n/);
+  return <div>
+    <p className="eyebrow">Encounter complete</p>
+    <h1 className="phase-heading">Your formative debrief</h1>
+    <div className="notice">This is practice feedback, not an official PACES result or validated pass prediction. Case content is draft pending clinician review.</div>
+    <div className="feedback-layout" style={{ marginTop: 22 }}>
+      <section className="card">
+        <div className="feedback-section" style={{ paddingTop: 0 }}><h3>Presentation</h3><p>{feedback.presentationFeedback}</p></div>
+        <div className="feedback-section"><h3>Reasoning and differentials</h3><p>{reasoning}</p>
+          {feedback.differentialsCorrect.length > 0 && <p className="small"><strong>Recognised in your presentation:</strong> {feedback.differentialsCorrect.join('; ')}</p>}
+          {nextSteps.length > 0 && <p className="small" style={{ whiteSpace: 'pre-line' }}>{nextSteps.join('\n\n')}</p>}
+        </div>
+        <div className="feedback-section" style={{ borderBottom: 0 }}><h3>Viva</h3><p>{feedback.vivaFeedback}</p></div>
+      </section>
+      <aside>
+        <section className="card" style={{ marginBottom: 16 }}>
+          <p className="eyebrow">Your next practice goal</p>
+          <p className="retry-goal">{feedback.nextPracticeGoal}</p>
+          <p className="muted small">Start a fresh guided encounter with this goal. Presentation and viva are included again.</p>
+          <button type="button" className="button button-primary" onClick={onRetry}>Retry full case with this goal</button>
+        </section>
+        <section className="card">
+          <p className="eyebrow">Examination action log</p>
+          <strong>{feedback.examinationCoverage}% of required actions rehearsed</strong>
+          <p className="muted small">This is not a PACES score. Requested findings do not demonstrate physical technique, independent sign recognition or patient welfare.</p>
+          <details><summary className="small muted">Review rehearsed and missed actions</summary>
+            <h3 className="small">Rehearsed</h3>{feedback.actionsRehearsed.length ? <ul className="small">{feedback.actionsRehearsed.map(item => <li key={item}>{item}</li>)}</ul> : <p className="small muted">No required actions were rehearsed.</p>}
+            <h3 className="small">Not rehearsed</h3>{feedback.actionsMissed.length ? <ul className="small">{feedback.actionsMissed.map(item => <li key={item}>{item}</li>)}</ul> : <p className="small muted">All required actions were rehearsed.</p>}
+          </details>
+        </section>
+      </aside>
     </div>
-    <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>This is not an official PACES result or a validated pass prediction. Case content is pending clinician review.</p>
-    <div style={{ display: 'flex', gap: '2rem', margin: '1.5rem 0', flexWrap: 'wrap' }}>
-      <div><strong style={{ fontSize: '2rem', color: '#1f2937' }}>{feedback.score}/{feedback.maxScore}</strong><span style={{ display: 'block', color: '#6b7280' }}>Practice coverage score</span></div>
-      <div><strong style={{ fontSize: '2rem', color: '#1f2937' }}>{feedback.examinationCoverage}%</strong><span style={{ display: 'block', color: '#6b7280' }}>Required signs discovered</span></div>
-    </div>
-    {section('Presentation', feedback.presentationFeedback)}
-    {section('Viva', feedback.vivaFeedback)}
-    {list('Key signs identified', feedback.keySignsIdentified, 'No required key signs were recorded.')}
-    {list('Key signs missed', feedback.keySignsMissed, 'All required key signs were discovered.')}
-    {list('Differential recognised', feedback.differentialsCorrect, 'No target diagnosis recognised in the presentation.')}
-    {section('Reasoning and next steps', feedback.overallFeedback)}
-    <button onClick={onTryAnother} style={{ background: '#3b82f6', color: '#fff', border: 'none', padding: '0.75rem 2rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}>Try Another Case</button>
+    <button type="button" className="button button-quiet" style={{ marginTop: 18 }} onClick={onTryAnother}>Return to pilot overview</button>
   </div>;
 };

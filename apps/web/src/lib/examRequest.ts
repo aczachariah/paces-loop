@@ -19,10 +19,11 @@ export function shouldApplyExaminationResponse(generation: RequestGeneration, re
   return examining && generation.isCurrent(requestGeneration);
 }
 
-export function buildVivaRecoveryRequest(answersRecorded: number, totalQuestions: number, answer: string, token: string): { phase: 'viva' | 'feedback'; userInput: string; sessionToken: string } {
+export function buildVivaRecoveryRequest(answersRecorded: number, totalQuestions: number, answer: string | null, token: string): { phase: 'viva' | 'feedback'; userInput: string; sessionToken: string } {
+  const recoveringFinalAnswer = answersRecorded === totalQuestions - 1 && answer !== null;
   return {
-    phase: answersRecorded === totalQuestions - 1 ? 'viva' : 'feedback',
-    userInput: answersRecorded === totalQuestions - 1 ? answer : '',
+    phase: recoveringFinalAnswer ? 'viva' : 'feedback',
+    userInput: recoveringFinalAnswer ? answer : '',
     sessionToken: token,
   };
 }

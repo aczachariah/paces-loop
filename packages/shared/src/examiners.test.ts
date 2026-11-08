@@ -82,7 +82,10 @@ test('feedback includes examination coverage and is formative', () => {
   });
   assert.equal(feedback.passed, null);
   assert.equal(feedback.assessmentKind, 'formative');
-  assert.ok(feedback.keySignsIdentified.includes(finding.finding));
-  assert.ok(feedback.keySignsMissed.length > 0);
+  assert.ok(feedback.actionsRehearsed.includes(finding.finding));
+  assert.ok(feedback.actionsMissed.length > 0);
+  assert.equal('keySignsIdentified' in feedback, false);
+  assert.equal('keySignsMissed' in feedback, false);
+  assert.ok(feedback.nextPracticeGoal.length > 0);
   assert.ok(feedback.examinationCoverage < 100);
 });

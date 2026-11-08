@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import type { CaseSummary, ExamRecord, ExaminerFeedback, ExaminerMessage } from '@paces/shared';
+import type { CaseSummary, ExamRecord, ExaminerFeedback, ExaminerMessage, PracticeMode } from '@paces/shared';
 import { publicCases } from '@paces/shared/client';
 import { getExamTimerDeadline, getExamTimerTick } from '@paces/shared/client';
 import { CaseBrief } from './CaseBrief';
@@ -10,26 +10,27 @@ import { VivaChat } from './VivaChat';
 import { AIScoreFeedback } from './AIScoreFeedback';
 import ExaminingPhase from './ExaminingPhase';
 import { buildVivaRecoveryRequest } from '../lib/examRequest';
+import { PilotSetup } from './PilotSetup';
 
-type Phase = 'select-case' | 'briefing' | 'examining' | 'presenting' | 'viva' | 'feedback' | 'loading';
-const SYSTEM_META: Record<string, { label: string; icon: string }> = {
-  cardio: { label: 'Cardiovascular', icon: '❤️' }, resp: { label: 'Respiratory', icon: '🫁' },
-  abdo: { label: 'Gastrointestinal', icon: '🩺' }, neuro: { label: 'Neurology', icon: '🧠' },
-};
+type Phase = 'select-case' | 'setup' | 'briefing' | 'examining' | 'presenting' | 'viva' | 'feedback';
 
 function CaseSelector({ onSelect }: { onSelect: (item: CaseSummary) => void }) {
-  return <div style={{ padding: '1rem 0' }}>
-    <h2 style={{ color: '#1f2937' }}>Select a Case</h2>
-    <p style={{ color: '#6b7280' }}>Choose a clinical system. The diagnosis is revealed only in feedback.</p>
-    {(['cardio', 'resp', 'abdo', 'neuro'] as const).map(system => <section key={system} style={{ marginBottom: '1rem' }}>
-      <h3 style={{ fontSize: '1rem' }}>{SYSTEM_META[system].icon} {SYSTEM_META[system].label}</h3>
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        {publicCases.filter(item => item.system === system).map(item => <button key={item.id} onClick={() => onSelect(item)} style={{ padding: '0.75rem 1.25rem', background: '#fff', border: '1px solid #3b82f6', borderRadius: '8px', cursor: 'pointer', textAlign: 'left' }}>
-          <strong style={{ display: 'block', color: '#1f2937' }}>{item.label}</strong>
-          <span style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase' }}>{item.difficulty}</span>
-        </button>)}
+  const pilotCase = publicCases.find(item => item.id === 'cardio-01')!;
+  return <div className="pilot-intro">
+    <section>
+      <p className="eyebrow">Deliberate spoken rehearsal</p>
+      <h1>Practise the whole encounter, not just the examination.</h1>
+      <p className="muted" style={{ lineHeight: 1.7, maxWidth: 580 }}>Rehearse a timed cardiovascular station, present your synthesis aloud, answer examiner-style viva questions and leave with one specific goal for your next attempt.</p>
+      <div className="case-choice">
+        <button type="button" className="button button-primary" onClick={() => onSelect(pilotCase)}>{pilotCase.label}<span className="small">{pilotCase.difficulty}</span></button>
+        <span className="muted small">One case · approximately 20–30 minutes</span>
       </div>
-    </section>)}
+    </section>
+    <aside className="card">
+      <p className="eyebrow">Before you begin</p>
+      <p className="small" style={{ lineHeight: 1.65 }}>Use a quiet room and allow microphone access. You can edit every transcript or type instead. Headphones are optional; examiner questions are text.</p>
+      <div className="notice"><strong>Pilot boundaries</strong><br />This supplements bedside teaching. It does not observe hands-on technique, physical comfort, dignity or real patient welfare. Case content is draft pending clinician review.</div>
+    </aside>
   </div>;
 }
 
@@ -48,6 +49,10 @@ export const AIExaminer: React.FC = () => {
   const [feedbackReady, setFeedbackReady] = useState(false);
   const [finalAnswer, setFinalAnswer] = useState<string | null>(null);
   const [answersRecorded, setAnswersRecorded] = useState(0);
+  const [mode, setMode] = useState<PracticeMode>('mock');
+  const [retryGoal, setRetryGoal] = useState<string | null>(null);
+  const [lastSubmission, setLastSubmission] = useState('');
+  const [failedVivaAnswer, setFailedVivaAnswer] = useState<string | null>(null);
   const phaseRef = useRef<Phase>('select-case');
   const transitionTo = useCallback((next: Phase) => { phaseRef.current = next; setPhase(next); }, []);
 
@@ -77,11 +82,16 @@ export const AIExaminer: React.FC = () => {
     return () => clearInterval(interval);
   }, [phase, examDeadline, handleExamComplete]);
 
+  const resetEncounter = useCallback(() => {
+    setExamination([]); setConversation([]); setSessionToken(null); setExamDeadline(null);
+    setSubmitting(false); setFeedbackReady(false); setFinalAnswer(null); setAnswersRecorded(0);
+    setExaminerFeedback(null); setExamTimeRemaining(540); setAskedQuestionIds([]); setError(null); setLastSubmission(''); setFailedVivaAnswer(null);
+  }, []);
+
   const handleSelectCase = useCallback((item: CaseSummary) => {
-    setCurrentCase(item); transitionTo('briefing'); setExamination([]); setConversation([]);
-    setSessionToken(null); setExamDeadline(null); setSubmitting(false); setFeedbackReady(false); setFinalAnswer(null); setAnswersRecorded(0);
-    setExaminerFeedback(null); setExamTimeRemaining(540); setAskedQuestionIds([]); setError(null);
-  }, [transitionTo]);
+    resetEncounter();
+    setCurrentCase(item); setMode('mock'); setRetryGoal(null); transitionTo('setup');
+  }, [resetEncounter, transitionTo]);
 
   const handleFinding = useCallback((finding: ExamRecord, token: string) => {
     if (phaseRef.current !== 'examining') return;
@@ -97,7 +107,7 @@ export const AIExaminer: React.FC = () => {
 
   const handlePresentationSubmit = useCallback(async (text: string) => {
     if (!currentCase || submitting) return;
-    setSubmitting(true); setError(null);
+    setSubmitting(true); setError(null); setLastSubmission(text);
     try {
       const response = await fetch('/api/examine', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -124,6 +134,8 @@ export const AIExaminer: React.FC = () => {
   const handleVivaMessage = useCallback(async (text: string) => {
     if (!currentCase || submitting) return;
     setSubmitting(true);
+    setLastSubmission(text);
+    setFailedVivaAnswer(null);
     const questionId = askedQuestionIds[askedQuestionIds.length - 1];
     const finalAnswer = askedQuestionIds.length === 5;
     const updated = [...conversation, { role: 'candidate' as const, content: text, questionId }];
@@ -158,6 +170,7 @@ export const AIExaminer: React.FC = () => {
       } else {
         setConversation(conversation);
       }
+      setFailedVivaAnswer(text);
       setError(caught instanceof Error ? caught.message : 'Please try again.');
     } finally {
       setSubmitting(false);
@@ -165,7 +178,7 @@ export const AIExaminer: React.FC = () => {
   }, [currentCase, conversation, askedQuestionIds, sessionToken, submitting, transitionTo]);
 
   const handleFeedbackRetry = useCallback(async () => {
-    if (!currentCase || !sessionToken || !finalAnswer || submitting) return;
+    if (!currentCase || !sessionToken || submitting) return;
     setSubmitting(true); setError(null);
     try {
       const response = await fetch('/api/examine', {
@@ -174,8 +187,9 @@ export const AIExaminer: React.FC = () => {
         body: JSON.stringify({ caseId: currentCase.id, ...buildVivaRecoveryRequest(answersRecorded, 5, finalAnswer, sessionToken) }),
       });
       const data = await response.json();
+      if (data.sessionToken) setSessionToken(data.sessionToken);
+      if (data.feedbackReady) { setFeedbackReady(true); setAnswersRecorded(5); }
       if (!response.ok || !data.feedback) throw new Error(data.error || 'Unable to generate feedback.');
-      setSessionToken(data.sessionToken);
       setExaminerFeedback(data.feedback); setFeedbackReady(false); transitionTo('feedback');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate feedback. Please try again.');
@@ -184,32 +198,38 @@ export const AIExaminer: React.FC = () => {
     }
   }, [currentCase, sessionToken, submitting, transitionTo, finalAnswer, answersRecorded]);
 
-  const handleTryAnother = useCallback(() => {
-    transitionTo('select-case'); setCurrentCase(null); setExamination([]); setConversation([]);
-    setExaminerFeedback(null); setAskedQuestionIds([]); setError(null);
-    setSessionToken(null); setExamDeadline(null); setExamTimeRemaining(540); setFeedbackReady(false); setFinalAnswer(null); setAnswersRecorded(0);
-  }, [transitionTo]);
+  const handleTargetedRetry = useCallback(() => {
+    if (!currentCase || !examinerFeedback) return;
+    const goal = examinerFeedback.nextPracticeGoal;
+    resetEncounter();
+    setMode('guided'); setRetryGoal(goal); transitionTo('setup');
+  }, [currentCase, examinerFeedback, resetEncounter, transitionTo]);
 
-  const labels: [Phase, string][] = [['select-case', 'Select Case'], ['briefing', 'Brief'], ['examining', 'Examine'], ['presenting', 'Present'], ['viva', 'Viva'], ['feedback', 'Feedback']];
+  const handleTryAnother = useCallback(() => {
+    resetEncounter();
+    transitionTo('select-case'); setCurrentCase(null); setMode('mock'); setRetryGoal(null);
+  }, [resetEncounter, transitionTo]);
+
+  const labels: [Phase, string][] = [['briefing', 'Brief'], ['examining', 'Examine'], ['presenting', 'Present'], ['viva', 'Viva'], ['feedback', 'Debrief']];
   const currentIndex = labels.findIndex(item => item[0] === phase);
   return <div>
-    {phase !== 'select-case' && phase !== 'loading' && <nav aria-label="Exam progress" style={{ display: 'flex', gap: '0.25rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-      {labels.map(([id, label], index) => <div key={id} style={{ flex: 1, minWidth: '70px', textAlign: 'center', padding: '0.4rem', borderRadius: '6px', background: index === currentIndex ? '#3b82f6' : '#f3f4f6', color: index === currentIndex ? '#fff' : '#6b7280', fontSize: '0.75rem' }}>{index < currentIndex ? '✓ ' : ''}{label}</div>)}
-    </nav>}
-    {error && <div role="alert" style={{ background: '#fef2f2', color: '#991b1b', padding: '0.75rem', marginBottom: '1rem', borderRadius: '6px' }}>{error}</div>}
-    {phase === 'loading' && <p role="status" style={{ textAlign: 'center', padding: '4rem', color: '#374151' }}>The examiner is preparing your first question…</p>}
+    {!['select-case', 'setup'].includes(phase) && <nav aria-label="Exam progress"><ol className="phase-steps">
+      {labels.map(([id, label], index) => <li key={id} className={index === currentIndex ? 'active' : index < currentIndex ? 'complete' : ''} aria-current={index === currentIndex ? 'step' : undefined}>{index < currentIndex ? '✓ ' : ''}{label}</li>)}
+    </ol></nav>}
     {phase === 'select-case' && <CaseSelector onSelect={handleSelectCase} />}
+    {phase === 'setup' && currentCase && <PilotSetup caseData={currentCase} mode={mode} retryGoal={retryGoal} onModeChange={setMode} onStart={() => transitionTo('briefing')} onBack={handleTryAnother} />}
     {phase === 'briefing' && currentCase && <CaseBrief brief={currentCase.brief} onComplete={beginExam} />}
-    {phase === 'examining' && currentCase && <ExaminingPhase caseData={currentCase} timeRemaining={examTimeRemaining} findings={examination} onFinding={handleFinding} onSessionToken={handleSessionToken} sessionToken={sessionToken} onComplete={handleExamComplete} />}
-    {phase === 'presenting' && <PresentationInput onSubmit={handlePresentationSubmit} loading={submitting} />}
+    {phase === 'examining' && currentCase && <ExaminingPhase caseData={currentCase} timeRemaining={examTimeRemaining} findings={examination} onFinding={handleFinding} onSessionToken={handleSessionToken} sessionToken={sessionToken} onComplete={handleExamComplete} mode={mode} />}
+    {phase === 'presenting' && <PresentationInput onSubmit={handlePresentationSubmit} loading={submitting} error={error} />}
     {phase === 'viva' && <>
-      <VivaChat messages={conversation} onSendMessage={handleVivaMessage} loading={submitting} isComplete={feedbackReady} questionCount={askedQuestionIds.length} totalQuestions={5} />
-      {feedbackReady && <div style={{ maxWidth: '700px', margin: '1rem auto', textAlign: 'center' }}>
-        <button type="button" onClick={handleFeedbackRetry} disabled={submitting} style={{ padding: '0.75rem 1.5rem', borderRadius: '6px', border: 'none', background: '#3b82f6', color: '#fff', cursor: submitting ? 'not-allowed' : 'pointer' }}>
+      <VivaChat messages={conversation} onSendMessage={handleVivaMessage} loading={submitting} isComplete={feedbackReady} questionCount={askedQuestionIds.length} totalQuestions={5} error={error} initialValue={failedVivaAnswer || ''} />
+      {feedbackReady && <div className="spoken-layout" style={{ marginTop: 16, textAlign: 'center' }}>
+        <button type="button" className="button button-primary" onClick={handleFeedbackRetry} disabled={submitting}>
           {submitting ? 'Generating feedback…' : 'Generate feedback'}
         </button>
+        <p className="muted small">Your five answers are recorded. Generate the formative debrief; the original final answer will be recovered if the response was lost.</p>
       </div>}
     </>}
-    {phase === 'feedback' && examinerFeedback && <AIScoreFeedback feedback={examinerFeedback} onTryAnother={handleTryAnother} />}
+    {phase === 'feedback' && examinerFeedback && <AIScoreFeedback feedback={examinerFeedback} onRetry={handleTargetedRetry} onTryAnother={handleTryAnother} />}
   </div>;
 };

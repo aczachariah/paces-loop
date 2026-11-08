@@ -88,8 +88,9 @@ export interface ExaminerFeedback {
   maxScore: number;
   presentationFeedback: string;
   vivaFeedback: string;
-  keySignsIdentified: string[];
-  keySignsMissed: string[];
+  actionsRehearsed: string[];
+  actionsMissed: string[];
+  nextPracticeGoal: string;
   differentialsCorrect: string[];
   differentialsMissed: string[];
   overallFeedback: string;
