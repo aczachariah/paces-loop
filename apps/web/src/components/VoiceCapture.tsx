@@ -21,6 +21,11 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
   const recognitionRef = useRef<any>(null);
   const mountedRef = useRef(true);
   const initialDraftRef = useRef(initialValue);
+  const sessionRef = useRef(0);
+  const receivedResultRef = useRef(false);
+  const startingRef = useRef(false);
+  const speechErrorRef = useRef(false);
+  const startTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (initialValue !== initialDraftRef.current) {
@@ -31,8 +36,12 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
 
   useEffect(() => {
     mountedRef.current = true;
+    const session = sessionRef;
+    const startTimeout = startTimeoutRef;
     return () => {
       mountedRef.current = false;
+      session.current++;
+      if (startTimeout.current) clearTimeout(startTimeout.current);
       recognitionRef.current?.abort();
     };
   }, []);
@@ -49,12 +58,25 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
       return;
     }
     const recognition = new Recognition();
+    const session = ++sessionRef.current;
+    const isCurrentSession = () => mountedRef.current && sessionRef.current === session;
+    receivedResultRef.current = false;
+    startingRef.current = true;
+    speechErrorRef.current = false;
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'en-GB';
     recognition.maxAlternatives = 1;
+    recognition.onstart = () => {
+      if (!isCurrentSession()) return;
+      startingRef.current = false;
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+    };
     recognition.onresult = (event: any) => {
-      if (!mountedRef.current) return;
+      if (!isCurrentSession()) return;
+      receivedResultRef.current = true;
+      startingRef.current = false;
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
       const said = String(event.results[0][0].transcript || '').trim();
       if (!said) return;
       setDraft(said);
@@ -64,15 +86,28 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
       }
     };
     recognition.onerror = (event: any) => {
-      if (!mountedRef.current || event.error === 'aborted') return;
+      if (!isCurrentSession() || event.error === 'aborted') return;
+      speechErrorRef.current = true;
+      startingRef.current = false;
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
       setLocalError(event.error === 'not-allowed'
         ? 'Microphone access denied. Allow microphone access or type your response.'
         : event.error === 'no-speech'
           ? 'No speech detected. Try the microphone again or type your response.'
-          : 'Speech recognition failed. Please type your response.');
+          : event.error === 'network'
+            ? 'The browser speech service could not be reached. Check your connection, try again, or type your response.'
+            : 'Speech recognition failed. Please type your response.');
       setListening(false);
     };
-    recognition.onend = () => { if (mountedRef.current) setListening(false); };
+    recognition.onend = () => {
+      if (!isCurrentSession()) return;
+      startingRef.current = false;
+      if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
+      setListening(false);
+      if (!receivedResultRef.current && !speechErrorRef.current) {
+        setLocalError('Speech recognition did not produce a transcript. Tap Speak and try again, or type your response.');
+      }
+    };
     recognitionRef.current = recognition;
     setLocalError(null);
     setReviewing(false);
@@ -80,7 +115,15 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
     try {
       recognition.start();
       setListening(true);
+      startTimeoutRef.current = setTimeout(() => {
+        if (!isCurrentSession() || !startingRef.current || receivedResultRef.current) return;
+        startingRef.current = false;
+        setListening(false);
+        recognition.abort();
+        setLocalError('The browser speech service did not start. Check your connection, tap Speak to retry, or type your response.');
+      }, 8000);
     } catch {
+      startingRef.current = false;
       setLocalError('Could not start the microphone. Please type your response.');
     }
   }
@@ -88,6 +131,9 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
   function submit() {
     const value = draft.trim();
     if (!value || loading || disabled || listening) return;
+    ++sessionRef.current;
+    startingRef.current = false;
+    if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
     recognitionRef.current?.abort();
     setListening(false);
     setReviewing(false);

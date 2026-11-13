@@ -80,7 +80,10 @@ test('microphone denial explains typed fallback and does not submit', async t =>
   t.after(() => act(() => renderer.unmount()));
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
   await act(async () => { FakeRecognition.latest!.onerror?.({ error: 'not-allowed' }); });
+  await act(async () => { FakeRecognition.latest!.onend?.(); });
   assert.match(text(renderer.toJSON()), /Microphone access denied/);
+  assert.doesNotMatch(text(renderer.toJSON()), /did not produce a transcript/);
+  assert.equal(renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.disabled, false);
   assert.match(text(renderer.toJSON()), /type/i);
   assert.deepEqual(submitted, []);
 });
@@ -114,4 +117,84 @@ test('unmount aborts recognition and ignores late speech callbacks', async t => 
   assert.equal(recognition.aborted, true);
   recognition.onresult?.({ results: [{ 0: { transcript: 'Late speech' }, isFinal: true }] });
   assert.deepEqual(submitted, []);
+});
+
+test('second microphone session works after a submitted finding', async t => {
+  const original = (globalThis as any).window;
+  (globalThis as any).window = { SpeechRecognition: FakeRecognition };
+  t.after(() => { (globalThis as any).window = original; });
+  const submitted: string[] = [];
+  const renderer = await create({ label: 'Examination step', submitLabel: 'Examine', onSubmit: value => submitted.push(value) });
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  const first = FakeRecognition.latest!;
+  await act(async () => { first.onresult?.({ results: [{ 0: { transcript: 'Inspect hands' }, isFinal: true }] }); });
+  await act(async () => { first.onend?.(); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
+  assert.deepEqual(submitted, ['Inspect hands']);
+  await act(() => renderer.update(React.createElement(VoiceCapture, {
+    label: 'Examination step', submitLabel: 'Examine', onSubmit: value => submitted.push(value), initialValue: '',
+  })));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  const second = FakeRecognition.latest!;
+  assert.notEqual(second, first);
+  await act(async () => { second.onresult?.({ results: [{ 0: { transcript: 'Palpate apex' }, isFinal: true }] }); });
+  assert.equal(renderer.root.findByType('textarea').props.value, 'Palpate apex');
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
+  assert.deepEqual(submitted, ['Inspect hands', 'Palpate apex']);
+});
+
+test('late callbacks from the first session cannot stop or corrupt the next session', async t => {
+  const original = (globalThis as any).window;
+  (globalThis as any).window = { SpeechRecognition: FakeRecognition };
+  t.after(() => { (globalThis as any).window = original; });
+  const renderer = await create({ label: 'Examination step', submitLabel: 'Examine', onSubmit: () => {} });
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  const first = FakeRecognition.latest!;
+  await act(async () => { first.onresult?.({ results: [{ 0: { transcript: 'Inspect hands' }, isFinal: true }] }); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
+  await act(() => renderer.update(React.createElement(VoiceCapture, {
+    label: 'Examination step', submitLabel: 'Examine', onSubmit: () => {}, initialValue: '',
+  })));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  const second = FakeRecognition.latest!;
+  await act(async () => { first.onend?.(); });
+  assert.equal(renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.disabled, false);
+  assert.equal(renderer.root.findByType('textarea').props.disabled, true, 'Late first-session end must not unlock the active second-session composer');
+  await act(async () => { second.onresult?.({ results: [{ 0: { transcript: 'Palpate apex' }, isFinal: true }] }); });
+  assert.equal(renderer.root.findByType('textarea').props.value, 'Palpate apex');
+});
+
+test('recognition ending without speech produces a recoverable no-result state', async t => {
+  const original = (globalThis as any).window;
+  (globalThis as any).window = { SpeechRecognition: FakeRecognition };
+  t.after(() => { (globalThis as any).window = original; });
+  const submitted: string[] = [];
+  const renderer = await create({ label: 'Examination step', submitLabel: 'Examine', onSubmit: value => submitted.push(value) });
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  await act(async () => { FakeRecognition.latest!.onresult?.({ results: [{ 0: { transcript: 'Inspect hands' }, isFinal: true }] }); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
+  await act(() => renderer.update(React.createElement(VoiceCapture, {
+    label: 'Examination step', submitLabel: 'Examine', onSubmit: value => submitted.push(value), initialValue: '',
+  })));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  await act(async () => { FakeRecognition.latest!.onend?.(); });
+  assert.match(text(renderer.toJSON()), /did not produce a transcript/i);
+  assert.equal(renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.disabled, false);
+  assert.deepEqual(submitted, ['Inspect hands']);
+});
+
+test('a recognition session that never starts offers a retry and typed fallback', async t => {
+  const original = (globalThis as any).window;
+  (globalThis as any).window = { SpeechRecognition: FakeRecognition };
+  t.after(() => { (globalThis as any).window = original; });
+  const renderer = await create({ label: 'Examination step', submitLabel: 'Examine' });
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 8200)); });
+  assert.match(text(renderer.toJSON()), /speech service did not start/i);
+  assert.equal(renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.disabled, false);
+  assert.equal(renderer.root.findByType('textarea').props.disabled, false);
 });

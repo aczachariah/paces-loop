@@ -117,7 +117,7 @@ export default function ExaminingPhase({ caseData, timeRemaining, findings, onFi
       <section className="card voice-panel" aria-labelledby="next-action-heading">
         <p className="eyebrow">Your next action</p>
         <h2 id="next-action-heading">Speak as you would at the bedside</h2>
-        <p className="muted small">One action per utterance. Edit the transcript before you confirm. Failed actions stay here for retry.</p>
+        <p className="muted small">One action per utterance. Tap Speak each time. Edit the transcript before you confirm. Failed actions stay here for retry.</p>
         <VoiceCapture label="Examination step" submitLabel="Examine" onSubmit={sendExamine} loading={examLoading} error={error} initialValue={lastAction} hint="Speak or type your next examination action." />
         {clarification && mode === 'guided' && <p className="clarification" role="status">{clarification}</p>}
         {clarification && mode === 'mock' && <p className="muted small" role="status">No observation was recorded for that action. Continue when ready.</p>}
