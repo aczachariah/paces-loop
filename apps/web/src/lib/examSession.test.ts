@@ -5,7 +5,7 @@ import { cardioCase1 } from '@paces/shared/server';
 
 const secret = 'test-only-secret-with-at-least-32-characters';
 const session: ExamSession = {
-  version: 1, caseId: 'cardio-01', caseVersion: cardioCase1.version,
+  version: 2, sessionId: 'test-session-id-0001', caseId: 'cardio-01', caseVersion: cardioCase1.version,
   startedAt: 1_000, updatedAt: 1_000, findings: [], answers: [],
 };
 
@@ -28,4 +28,16 @@ test('feedback evidence comes from server case definitions, not client finding p
   assert.equal(result[0].finding, cardioCase1.clinicalData.examFindings.find(item => item.id === 'hands')!.finding);
   assert.equal(result[0].bodySystem, 'hands');
   assert.throws(() => rehydrateExamination({ ...signed, findings: [{ findingId: 'invented', said: 'fake', correction: null }] }, cardioCase1));
+});
+
+test('tokens without a well-formed session id or from the previous schema are rejected', () => {
+  const legacy = createExamSessionToken({ ...session, version: 1 } as unknown as ExamSession, secret);
+  assert.throws(() => readExamSessionToken(legacy, secret, cardioCase1, 2_000));
+  const badId = createExamSessionToken({ ...session, sessionId: 'x' }, secret);
+  assert.throws(() => readExamSessionToken(badId, secret, cardioCase1, 2_000));
+});
+
+test('feedback marker is only valid on a completed viva', () => {
+  const marked = createExamSessionToken({ ...session, feedbackGeneratedAt: 1_500 }, secret);
+  assert.throws(() => readExamSessionToken(marked, secret, cardioCase1, 2_000));
 });

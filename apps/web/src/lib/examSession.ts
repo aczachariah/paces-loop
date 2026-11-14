@@ -1,14 +1,18 @@
 import 'server-only';
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { CaseDefinition, ExamRecord } from '@paces/shared';
 import { resolvePublicCase } from '@paces/shared/server';
 
-const MAX_AGE_MS = 2 * 60 * 60 * 1000;
+export const MAX_AGE_MS = 2 * 60 * 60 * 1000;
+export const SESSION_VERSION = 2;
+const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
 
 export interface SessionFinding { findingId: string; said: string; correction: string | null; }
 export interface SessionAnswer { questionId: string; answer: string; }
 export interface ExamSession {
-  version: 1;
+  version: 2;
+  /** Random id used for server-side rate limiting and the one-feedback-per-session ledger. */
+  sessionId: string;
   caseId: string;
   caseVersion: number;
   startedAt: number;
@@ -16,6 +20,8 @@ export interface ExamSession {
   findings: SessionFinding[];
   presentation?: string;
   answers: SessionAnswer[];
+  /** Set once formative feedback has been generated; forward tokens cannot request it again. */
+  feedbackGeneratedAt?: number;
 }
 
 export class InvalidExamSession extends Error {}
@@ -39,7 +45,7 @@ export function readExamSessionToken(token: string, secret: string, caseData: Ca
   let session: ExamSession;
   try { session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')); }
   catch { throw new InvalidExamSession('Invalid exam session.'); }
-  if (session.version !== 1 || resolvePublicCase(session.caseId) !== caseData || session.caseVersion !== caseData.version) throw new InvalidExamSession('This case has changed. Please restart the station.');
+  if (!session || typeof session !== 'object' || session.version !== SESSION_VERSION || typeof session.sessionId !== 'string' || !SESSION_ID_PATTERN.test(session.sessionId) || resolvePublicCase(session.caseId) !== caseData || session.caseVersion !== caseData.version) throw new InvalidExamSession('This case has changed. Please restart the station.');
   if (!Number.isFinite(session.startedAt) || !Number.isFinite(session.updatedAt) || now - session.startedAt > MAX_AGE_MS || session.updatedAt < session.startedAt || session.updatedAt > now + 60_000) throw new InvalidExamSession('The exam session has expired.');
   if (!Array.isArray(session.findings) || session.findings.length > caseData.clinicalData.examFindings.length || !Array.isArray(session.answers) || session.answers.length > 5) throw new InvalidExamSession('Invalid exam session.');
   if (session.presentation !== undefined && (typeof session.presentation !== 'string' || session.presentation.length > 6000)) throw new InvalidExamSession('Invalid exam session.');
@@ -54,6 +60,7 @@ export function readExamSessionToken(token: string, secret: string, caseData: Ca
     if (!item || item.questionId !== caseData.vivaQuestions[index]?.id || typeof item.answer !== 'string' || item.answer.trim().length === 0 || item.answer.length > 6000) throw new InvalidExamSession('Invalid viva record.');
   }
   if (session.answers.length && !session.presentation?.trim()) throw new InvalidExamSession('Invalid viva record.');
+  if (session.feedbackGeneratedAt !== undefined && (!Number.isFinite(session.feedbackGeneratedAt) || session.answers.length !== caseData.vivaQuestions.length)) throw new InvalidExamSession('Invalid exam session.');
   return session;
 }
 
@@ -84,3 +91,5 @@ export function sessionMessages(session: ExamSession, caseData: CaseDefinition) 
   }
   return messages;
 }
+
+export function newSessionId(): string { return randomBytes(18).toString('base64url'); }
