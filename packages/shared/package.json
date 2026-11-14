@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "tsx --conditions=react-server --test src/**/*.test.ts"
+    "test": "tsx --conditions=react-server --test 'src/**/*.test.ts'"
   },
   "devDependencies": {
     "tsx": "^4.21.1"
