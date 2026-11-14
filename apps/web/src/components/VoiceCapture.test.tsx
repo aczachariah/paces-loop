@@ -6,6 +6,8 @@ import { VoiceCapture } from './VoiceCapture';
 
 class FakeRecognition {
   static latest: FakeRecognition | null = null;
+  static instances: FakeRecognition[] = [];
+  onstart: (() => void) | null = null;
   continuous = false;
   interimResults = false;
   lang = '';
@@ -14,12 +16,16 @@ class FakeRecognition {
   onerror: ((event: any) => void) | null = null;
   onend: (() => void) | null = null;
   aborted = false;
+  listeners: Record<string, Array<(event?: any) => void>> = {};
+  addEventListener(name: string, callback: (event?: any) => void) {
+    (this.listeners[name] ||= []).push(callback);
+  }
+  emit(name: string, event?: any) { this.listeners[name]?.forEach(callback => callback(event)); }
   start() { this.aborted = false; }
   stop() { this.onend?.(); }
   abort() { this.aborted = true; }
   constructor() { FakeRecognition.latest = this; }
 }
-
 function text(node: any): string {
   if (node == null || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
@@ -197,4 +203,45 @@ test('a recognition session that never starts offers a retry and typed fallback'
   assert.match(text(renderer.toJSON()), /speech service did not start/i);
   assert.equal(renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.disabled, false);
   assert.equal(renderer.root.findByType('textarea').props.disabled, false);
+});
+
+test('diagnostics track both captures and copy only browser event metadata', async t => {
+  const originalWindow = (globalThis as any).window;
+  const originalNavigator = (globalThis as any).navigator;
+  (globalThis as any).window = { SpeechRecognition: FakeRecognition };
+  let copiedReport = '';
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { clipboard: { writeText: async (report: string) => { copiedReport = report; } } },
+  });
+  t.after(() => {
+    (globalThis as any).window = originalWindow;
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: originalNavigator });
+  });
+  const renderer = await create({ label: 'Examination step', submitLabel: 'Examine' });
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  await act(async () => {
+    const first = FakeRecognition.latest!;
+    first.emit('start');
+    first.emit('speechstart');
+    first.onresult?.({ results: [{ 0: { transcript: 'Sensitive speech content' }, isFinal: true }] });
+  });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  await act(async () => {
+    const second = FakeRecognition.latest!;
+    second.emit('start');
+    second.emit('audiostart');
+    second.emit('error', { error: 'no-speech' });
+  });
+  const details = text(renderer.root.findByProps({ className: 'speech-diagnostics' }).findByType('pre').props.children);
+  const allContent = text(renderer.toJSON());
+  assert.match(allContent, /Speech diagnostics/);
+  assert.match(details, /Capture 1: final transcript received/);
+  assert.match(details, /Capture 2: no-speech/);
+  await act(async () => { await renderer.root.findByProps({ children: 'Copy report' }).props.onClick(); });
+  assert.match(copiedReport, /Capture 1: final transcript received/);
+  assert.match(copiedReport, /Capture 2: no-speech/);
+  assert.doesNotMatch(copiedReport, /Sensitive speech content/);
 });

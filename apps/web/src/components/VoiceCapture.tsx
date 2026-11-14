@@ -18,10 +18,13 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
   const [listening, setListening] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [diagnosticLog, setDiagnosticLog] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
   const recognitionRef = useRef<any>(null);
   const mountedRef = useRef(true);
   const initialDraftRef = useRef(initialValue);
   const sessionRef = useRef(0);
+  const captureNumberRef = useRef(0);
   const receivedResultRef = useRef(false);
   const startingRef = useRef(false);
   const speechErrorRef = useRef(false);
@@ -59,6 +62,7 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
     }
     const recognition = new Recognition();
     const session = ++sessionRef.current;
+    const captureNumber = ++captureNumberRef.current;
     const isCurrentSession = () => mountedRef.current && sessionRef.current === session;
     receivedResultRef.current = false;
     startingRef.current = true;
@@ -67,6 +71,21 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
     recognition.interimResults = true;
     recognition.lang = 'en-GB';
     recognition.maxAlternatives = 1;
+    // Local, opt-in event metadata only: never retain speech/audio contents.
+    for (const name of ['start', 'audiostart', 'speechstart', 'speechend', 'audioend', 'end']) {
+      recognition.addEventListener(name, () => {
+        if (!isCurrentSession()) return;
+        setDiagnosticLog(current => [...current.slice(-19), `Capture ${captureNumber}: ${name}`]);
+      });
+    }
+    recognition.addEventListener('error', (event: any) => {
+      if (!isCurrentSession()) return;
+      setDiagnosticLog(current => [...current.slice(-19), `Capture ${captureNumber}: ${event.error}`]);
+    });
+    recognition.addEventListener('nomatch', () => {
+      if (isCurrentSession()) setDiagnosticLog(current => [...current.slice(-19), `Capture ${captureNumber}: no-match`]);
+    });
+    setDiagnosticLog(current => [...current.slice(-19), `Capture ${captureNumber}: requested`]);
     recognition.onstart = () => {
       if (!isCurrentSession()) return;
       startingRef.current = false;
@@ -78,6 +97,7 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
       startingRef.current = false;
       if (startTimeoutRef.current) clearTimeout(startTimeoutRef.current);
       const said = String(event.results[0][0].transcript || '').trim();
+      setDiagnosticLog(current => [...current.slice(-19), `Capture ${captureNumber}: ${event.results[0].isFinal ? 'final transcript' : 'interim transcript'} received`]);
       if (!said) return;
       setDraft(said);
       if (event.results[0].isFinal) {
@@ -124,7 +144,18 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
       }, 8000);
     } catch {
       startingRef.current = false;
+      setDiagnosticLog(current => [...current.slice(-19), `Capture ${captureNumber}: start blocked`]);
       setLocalError('Could not start the microphone. Please type your response.');
+    }
+  }
+
+  async function copyDiagnostics() {
+    const report = diagnosticLog.join('\n');
+    try {
+      await navigator.clipboard.writeText(report);
+      setCopied(true);
+    } catch {
+      window.prompt('Copy this speech diagnostic report:', report);
     }
   }
 
@@ -152,6 +183,12 @@ export function VoiceCapture({ label, submitLabel, onSubmit, loading = false, di
     <label className="sr-only" htmlFor={`voice-${label.replace(/\W+/g, '-').toLowerCase()}`}>{label}</label>
     <textarea id={`voice-${label.replace(/\W+/g, '-').toLowerCase()}`} aria-label={label} rows={4} value={draft} onChange={event => { setDraft(event.target.value); setReviewing(true); }} disabled={loading || disabled || listening} placeholder={`Speak or type your ${label.toLowerCase()}…`} />
     {(localError || error) && <p role="alert" className="inline-error">{localError || error}</p>}
+    <details className="speech-diagnostics">
+      <summary className="muted small">Speech diagnostics</summary>
+      <p className="muted small">Event names only; no audio or speech content. If the next capture fails, copy this report.</p>
+      <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>{diagnosticLog.length ? diagnosticLog.join('\n') : 'No microphone attempts yet.'}</pre>
+      <button type="button" className="button button-secondary" onClick={copyDiagnostics} disabled={!diagnosticLog.length}>{copied ? 'Report copied' : 'Copy report'}</button>
+    </details>
     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
       <button type="button" className="button button-primary" aria-label={submitLabel} onClick={submit} disabled={!draft.trim() || loading || disabled || listening}>
         {loading ? 'Submitting…' : submitLabel}
