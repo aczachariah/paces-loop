@@ -6,7 +6,7 @@ import type { SignClip } from './types';
 
 function clip(id: string, labels: SignClip['labels'], source: SignClip['source'] = 'circor-2022'): SignClip {
   return {
-    id, audio: `/signs/audio/${id}.mp3`, durationSec: 12, source, sourceName: 's', sourceUrl: 'u', recordId: id,
+    id, audio: `/signs/audio/${id}.mp3`, durationSec: 12, source, sourceName: 's', sourceUrl: 'u', recordId: id, subjectId: id, sourceSha256: '0'.repeat(64),
     originalFile: `${id}.wav`, licence: 'ODC-By-1.0', attribution: 'a', status: 's',
     context: { population: 'paediatric', site: 'MV' }, labels,
   };

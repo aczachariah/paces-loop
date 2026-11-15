@@ -39,6 +39,10 @@ export interface SignClip {
   sourceName: string;
   sourceUrl: string;
   recordId: string;
+  /** Patient/subject id in the source dataset (PhysioNet original record name, CirCor patient id). */
+  subjectId: string;
+  /** SHA-256 of the original downloaded recording. */
+  sourceSha256: string;
   originalFile: string;
   licence: 'ODC-By-1.0';
   attribution: string;

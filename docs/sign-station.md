@@ -8,7 +8,7 @@ drill; "Retry missed" re-runs the misses straight away. Scoring is deterministic
 
 ## Library
 `scripts/build-heart-sound-library.py` (python3 stdlib + ffmpeg) deterministically downloads and encodes 32
-clips into `apps/web/public/signs/audio/` (≈2.2 MB) and writes `packages/shared/src/signs/manifest.json`.
+clips into `apps/web/public/signs/audio/` (≈2.2 MB; every clip a distinct source recording and patient, enforced by the script and a manifest test) and writes `packages/shared/src/signs/manifest.json`.
 
 | Deck | Source | Clips | Labels used (only what the dataset records) |
 |---|---|---|---|

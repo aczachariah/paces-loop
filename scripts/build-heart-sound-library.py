@@ -23,7 +23,7 @@ dataset metadata; nothing is inferred. Output:
 Requirements: python3 (stdlib only) and ffmpeg on PATH. Re-running is deterministic.
 Usage: python3 scripts/build-heart-sound-library.py [--cache /tmp/hsdata]
 """
-import argparse, csv, io, json, os, subprocess, sys, urllib.request
+import argparse, csv, hashlib, io, json, os, subprocess, sys, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AUDIO_DIR = os.path.join(ROOT, 'apps', 'web', 'public', 'signs', 'audio')
@@ -88,7 +88,7 @@ def physionet_clips(cache):
     appendix = list(csv.DictReader(io.open(fetch(f'{PN16}/annotations/Online_Appendix_training_set.csv', cache), encoding='latin-1')))
     sqi = {r[0]: r for r in csv.reader(open(fetch(f'{PN16}/annotations/updated/training-c/REFERENCE_withSQI.csv', cache)))}
     quota = {'AS': 6, 'MR': 6, 'Controls': 4}
-    picked = []
+    picked, subjects = [], set()
     for row in sorted(appendix, key=lambda r: r['Challenge record name']):
         rec, diag = row['Challenge record name'], row['Diagnosis'].strip()
         if row['Database'] != 'training-c' or quota.get(diag, 0) == 0:
@@ -98,9 +98,13 @@ def physionet_clips(cache):
             continue
         if int(row['# Beat (automated algorithm)'] or 0) < 14:  # need enough beats for a 12 s clip
             continue
+        subject = row['Original record name'].strip()
+        if subject in subjects:  # at most one recording per patient
+            continue
+        subjects.add(subject)
         quota[diag] -= 1
         picked.append({
-            'source': 'physionet-2016', 'recordId': rec, 'file': f'{PN16}/training-c/{rec}.wav',
+            'source': 'physionet-2016', 'recordId': rec, 'subjectId': subject, 'file': f'{PN16}/training-c/{rec}.wav',
             'labels': {'heartSounds': 'abnormal' if ref[1] == '1' else 'normal', 'diagnosis': PN_DIAGNOSIS[diag]},
             'context': {'population': 'adult', 'site': None},
         })
@@ -152,7 +156,7 @@ def circor_clips(cache):
                     labels['systolicMurmur'] = 'absent'
                 labels['diastolicMurmur'] = 'present' if r['Diastolic murmur timing'] != 'nan' else 'absent'
             picked.append({
-                'source': 'circor-2022', 'recordId': f'{pid}_{site}', 'file': f'{CIRCOR}/training_data/{pid}_{site}.wav',
+                'source': 'circor-2022', 'recordId': f'{pid}_{site}', 'subjectId': pid, 'file': f'{CIRCOR}/training_data/{pid}_{site}.wav',
                 'labels': labels,
                 'context': {'population': 'paediatric', 'ageGroup': r['Age'].lower(), 'site': site, 'siteName': LOCATION_NAMES[site]},
             })
@@ -166,15 +170,27 @@ def main():
     os.makedirs(args.cache, exist_ok=True)
     os.makedirs(AUDIO_DIR, exist_ok=True)
     os.makedirs(os.path.dirname(MANIFEST), exist_ok=True)
-    clips = []
-    for i, c in enumerate(physionet_clips(args.cache) + circor_clips(args.cache), start=1):
-        cid = f'hs-{i:02d}'
-        duration = encode(fetch(c['file'], args.cache), os.path.join(AUDIO_DIR, f'{cid}.mp3'))
+    for name in os.listdir(AUDIO_DIR):  # no stale clips from a previous, larger build
+        if name.endswith('.mp3'):
+            os.remove(os.path.join(AUDIO_DIR, name))
+    clips, seen_keys, seen_hashes = [], set(), set()
+    for c in physionet_clips(args.cache) + circor_clips(args.cache):
+        # Never ship the same source recording twice: unique (dataset, record, file), one clip per
+        # patient per dataset, and unique source audio bytes. Ship fewer clips rather than duplicates.
+        src_path = fetch(c['file'], args.cache)
+        digest = hashlib.sha256(open(src_path, 'rb').read()).hexdigest()
+        keys = {(c['source'], 'record', c['recordId']), (c['source'], 'file', c['file']), (c['source'], 'subject', c['subjectId'])}
+        if keys & seen_keys or digest in seen_hashes:
+            print('  skipping duplicate recording', c['file'], file=sys.stderr)
+            continue
+        seen_keys |= keys; seen_hashes.add(digest)
+        cid = f'hs-{len(clips) + 1:02d}'
+        duration = encode(src_path, os.path.join(AUDIO_DIR, f'{cid}.mp3'))
         src = SOURCES[c['source']]
         clips.append({
             'id': cid, 'audio': f'/signs/audio/{cid}.mp3', 'durationSec': duration,
             'source': c['source'], 'sourceName': src['name'], 'sourceUrl': src['url'], 'recordId': c['recordId'],
-            'originalFile': c['file'].rsplit('/', 1)[1], 'licence': src['licence'], 'attribution': src['attribution'],
+            'subjectId': c['subjectId'], 'sourceSha256': digest, 'originalFile': c['file'].rsplit('/', 1)[1], 'licence': src['licence'], 'attribution': src['attribution'],
             'status': STATUS, 'context': c['context'], 'labels': c['labels'],
         })
     manifest = {'version': 1, 'generatedBy': 'scripts/build-heart-sound-library.py', 'sources': SOURCES, 'clips': clips}

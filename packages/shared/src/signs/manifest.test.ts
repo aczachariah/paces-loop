@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
@@ -71,4 +72,16 @@ test('decks partition the library and each covers both classes', () => {
   assert.equal(adult.length + murmur.length, SIGN_CLIPS.length);
   assert.ok(adult.some(c => c.labels.heartSounds === 'normal') && adult.some(c => c.labels.heartSounds === 'abnormal'));
   assert.ok(murmur.some(c => c.labels.murmur === 'present') && murmur.some(c => c.labels.murmur === 'absent'));
+});
+
+test('every clip is a distinct source recording: unique dataset/record/file, patient and audio hash', () => {
+  const key = (parts: string[]) => parts.join('|');
+  const triples = SIGN_CLIPS.map(c => key([c.source, c.recordId, c.originalFile]));
+  assert.equal(new Set(triples).size, SIGN_CLIPS.length, 'duplicate (dataset, record, file)');
+  assert.equal(new Set(SIGN_CLIPS.map(c => key([c.source, c.originalFile]))).size, SIGN_CLIPS.length, 'duplicate source file');
+  assert.equal(new Set(SIGN_CLIPS.map(c => key([c.source, c.subjectId]))).size, SIGN_CLIPS.length, 'more than one clip per patient');
+  for (const c of SIGN_CLIPS) assert.match(c.sourceSha256, /^[0-9a-f]{64}$/, `${c.id} source hash`);
+  assert.equal(new Set(SIGN_CLIPS.map(c => c.sourceSha256)).size, SIGN_CLIPS.length, 'duplicate source audio content');
+  const audioHashes = SIGN_CLIPS.map(c => createHash('sha256').update(readFileSync(join(publicDir, c.audio))).digest('hex'));
+  assert.equal(new Set(audioHashes).size, SIGN_CLIPS.length, 'duplicate encoded audio content');
 });
