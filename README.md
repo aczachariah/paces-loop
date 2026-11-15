@@ -23,6 +23,10 @@ This project is structured as a monorepo using **pnpm workspaces**:
 └── tsconfig.json             # Root TypeScript configuration
 ```
 
+## Heart-sound drill (prototype)
+
+`/signs` is a timed "what do you hear?" drill using 32 real recordings from open PhysioNet datasets (ODC-By 1.0), scored deterministically against the datasets' own labels (pending clinician review). See [docs/sign-station.md](docs/sign-station.md) and [apps/web/public/signs/ATTRIBUTION.md](apps/web/public/signs/ATTRIBUTION.md).
+
 ## Getting Started
 
 ### Prerequisites
@@ -76,7 +80,11 @@ The test suite uses mocked inference and covers canonical examination findings, 
 
 - Clinical case definitions and the public-to-private case mapping are server-only; the browser receives neutral public case metadata and findings revealed by the examiner.
 - The examination, presentation and viva answers are carried in an HMAC-signed transcript with a two-hour lifetime.
-- `EXAM_SESSION_SECRET` must be set to a strong random value of at least 32 characters in production. The fallback secret is for local development only.
+- `EXAM_SESSION_SECRET` must be a strong random value of at least 32 characters (`openssl rand -hex 32`) in every environment except development/test. The server checks it at start-up (`src/instrumentation.ts`) and on each request, and rejects missing, short or published example values. In development a missing value falls back to a random per-process secret, so tokens reset when the dev server restarts.
+- `PACES_ACCESS_CODE` gates `/api/examine` and `/api/tts`. Candidates enter it on the pilot overview page and the browser sends it in the `x-paces-access-code` header. If it is unset in development/test the routes stay open; if it is unset anywhere else they return 503 rather than expose paid inference.
+- Rate limits: 120 requests per IP per 10 minutes and 60 requests per signed exam session. Counters are in memory, per server instance; on serverless platforms each instance (and every cold start) has its own counters, so this bounds abuse per instance only. Use a shared store such as Redis/KV before any public launch.
+- Feedback is generated at most once per exam session. Because signed tokens are stateless, an older token can always be replayed, so the server keeps an in-memory ledger of session ids that have consumed feedback (a failed generation can be retried) and also marks the returned token. The ledger has the same per-instance limitation as the rate limiter; a durable store is the proper fix.
+- Candidate text is sent to the model inside escaped `<candidate_utterance>`/`<candidate_evidence>` delimiters with instructions to treat it as data. Text that is clearly addressed to the grader (for example "ignore previous instructions" or rubric field names) is rejected with a 400 before any inference. The examination-step router returns only fixed correction codes, so free-form model text is never echoed to the browser.
 - Configure `ENGY_API_KEY` and optionally `SAYGM_API_KEY` as server-side environment variables. See `.env.example`.
 - The LLM selects known examination steps and assesses free-text answers. Clinical findings, viva progression and examination coverage are deterministic.
 - Scores are formative practice feedback, not an official PACES result or validated pass prediction. Case content remains draft pending clinician review.

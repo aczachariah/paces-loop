@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
-import { VoiceCapture } from './VoiceCapture';
+import { MAX_SILENT_RESTARTS, SPEECH_PRIVACY_NOTICE, VoiceCapture } from './VoiceCapture';
 
 class FakeRecognition {
   static latest: FakeRecognition | null = null;
@@ -21,7 +21,8 @@ class FakeRecognition {
     (this.listeners[name] ||= []).push(callback);
   }
   emit(name: string, event?: any) { this.listeners[name]?.forEach(callback => callback(event)); }
-  start() { this.aborted = false; }
+  starts = 0;
+  start() { this.starts++; this.aborted = false; }
   stop() { this.onend?.(); }
   abort() { this.aborted = true; }
   constructor() { FakeRecognition.latest = this; }
@@ -52,12 +53,15 @@ test('interim speech remains a draft and final speech requires explicit confirma
   t.after(() => act(() => renderer.unmount()));
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
   const recognition = FakeRecognition.latest!;
-  assert.equal(recognition.continuous, false);
+  assert.equal(recognition.continuous, true);
+  assert.equal(recognition.interimResults, true);
   await act(async () => { recognition.onresult?.({ results: [{ 0: { transcript: 'I examined' }, isFinal: false }] }); });
   assert.deepEqual(submitted, []);
   assert.equal(renderer.root.findByType('textarea').props.value, 'I examined');
   await act(async () => { recognition.onresult?.({ results: [{ 0: { transcript: 'I examined the cardiovascular system.' }, isFinal: true }] }); });
   assert.deepEqual(submitted, [], 'No automatic submission after final speech');
+  assert.equal(renderer.root.findByProps({ 'aria-label': 'Submit presentation' }).props.disabled, true, 'Continuous capture must be stopped before submitting');
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
   assert.match(text(renderer.toJSON()), /Review and edit your transcript/);
   await act(async () => { renderer.root.findByType('textarea').props.onChange({ target: { value: 'Edited presentation' } }); });
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Submit presentation' }).props.onClick(); });
@@ -135,7 +139,7 @@ test('second microphone session works after a submitted finding', async t => {
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
   const first = FakeRecognition.latest!;
   await act(async () => { first.onresult?.({ results: [{ 0: { transcript: 'Inspect hands' }, isFinal: true }] }); });
-  await act(async () => { first.onend?.(); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
   assert.deepEqual(submitted, ['Inspect hands']);
   await act(() => renderer.update(React.createElement(VoiceCapture, {
@@ -146,6 +150,7 @@ test('second microphone session works after a submitted finding', async t => {
   assert.notEqual(second, first);
   await act(async () => { second.onresult?.({ results: [{ 0: { transcript: 'Palpate apex' }, isFinal: true }] }); });
   assert.equal(renderer.root.findByType('textarea').props.value, 'Palpate apex');
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
   assert.deepEqual(submitted, ['Inspect hands', 'Palpate apex']);
 });
@@ -159,6 +164,7 @@ test('late callbacks from the first session cannot stop or corrupt the next sess
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
   const first = FakeRecognition.latest!;
   await act(async () => { first.onresult?.({ results: [{ 0: { transcript: 'Inspect hands' }, isFinal: true }] }); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
   await act(() => renderer.update(React.createElement(VoiceCapture, {
     label: 'Examination step', submitLabel: 'Examine', onSubmit: () => {}, initialValue: '',
@@ -181,6 +187,7 @@ test('recognition ending without speech produces a recoverable no-result state',
   t.after(() => act(() => renderer.unmount()));
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
   await act(async () => { FakeRecognition.latest!.onresult?.({ results: [{ 0: { transcript: 'Inspect hands' }, isFinal: true }] }); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
   await act(() => renderer.update(React.createElement(VoiceCapture, {
     label: 'Examination step', submitLabel: 'Examine', onSubmit: value => submitted.push(value), initialValue: '',
@@ -227,6 +234,7 @@ test('diagnostics track both captures and copy only browser event metadata', asy
     first.emit('speechstart');
     first.onresult?.({ results: [{ 0: { transcript: 'Sensitive speech content' }, isFinal: true }] });
   });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Examine' }).props.onClick(); });
   await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
   await act(async () => {
@@ -244,4 +252,127 @@ test('diagnostics track both captures and copy only browser event metadata', asy
   assert.match(copiedReport, /Capture 1: final transcript received/);
   assert.match(copiedReport, /Capture 2: no-speech/);
   assert.doesNotMatch(copiedReport, /Sensitive speech content/);
+});
+
+/* ---------------- Long answers: continuous capture ---------------- */
+
+function useFakeSpeech(t: any) {
+  const original = (globalThis as any).window;
+  (globalThis as any).window = { SpeechRecognition: FakeRecognition };
+  t.after(() => { (globalThis as any).window = original; });
+}
+
+const final = (...segments: string[]) => ({ results: segments.map(transcript => ({ 0: { transcript }, isFinal: true })) });
+
+test('tapping Speak again appends to existing text instead of clearing it', async t => {
+  useFakeSpeech(t);
+  const renderer = await create();
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByType('textarea').props.onChange({ target: { value: '68-year-old woman in AF.' } }); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  assert.equal(renderer.root.findByType('textarea').props.value, '68-year-old woman in AF.', 'starting capture keeps typed text');
+  await act(async () => { FakeRecognition.latest!.onresult?.(final('The apex beat is displaced.')); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  await act(async () => { FakeRecognition.latest!.onresult?.({ results: [{ 0: { transcript: 'There is a pansystolic' }, isFinal: false }] }); });
+  assert.equal(renderer.root.findByType('textarea').props.value, '68-year-old woman in AF. The apex beat is displaced. There is a pansystolic');
+  await act(async () => { FakeRecognition.latest!.onresult?.(final('There is a pansystolic murmur.')); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
+  assert.equal(renderer.root.findByType('textarea').props.value, '68-year-old woman in AF. The apex beat is displaced. There is a pansystolic murmur.');
+});
+
+test('multiple final segments within one capture accumulate in order', async t => {
+  useFakeSpeech(t);
+  const submitted: string[] = [];
+  const renderer = await create({ onSubmit: value => submitted.push(value) });
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  const recognition = FakeRecognition.latest!;
+  await act(async () => { recognition.onresult?.(final('Irregularly irregular pulse.')); });
+  await act(async () => { recognition.onresult?.({ results: [{ 0: { transcript: 'Irregularly irregular pulse.' }, isFinal: true }, { 0: { transcript: 'Raised JVP' }, isFinal: false }] }); });
+  await act(async () => { recognition.onresult?.(final('Irregularly irregular pulse.', 'Raised JVP with v waves.')); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Submit presentation' }).props.onClick(); });
+  assert.deepEqual(submitted, ['Irregularly irregular pulse. Raised JVP with v waves.']);
+});
+
+test('browser auto-end mid-answer restarts transparently and keeps earlier text', async t => {
+  useFakeSpeech(t);
+  const renderer = await create();
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  const recognition = FakeRecognition.latest!;
+  assert.equal(recognition.starts, 1);
+  await act(async () => { recognition.onresult?.(final('First part of my presentation.')); });
+  await act(async () => { recognition.onend?.(); });
+  assert.equal(recognition.starts, 2, 'restarted after an unrequested end');
+  assert.ok(renderer.root.findByProps({ 'aria-label': 'Stop microphone' }), 'still listening');
+  await act(async () => { recognition.onresult?.(final('Second part.')); });
+  assert.equal(renderer.root.findByType('textarea').props.value, 'First part of my presentation. Second part.');
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
+  assert.equal(recognition.starts, 2, 'explicit Stop never restarts');
+  assert.equal(renderer.root.findByType('textarea').props.value, 'First part of my presentation. Second part.');
+});
+
+test('repeated silent restarts are capped, then listening pauses with text kept', async t => {
+  useFakeSpeech(t);
+  const renderer = await create();
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  const recognition = FakeRecognition.latest!;
+  await act(async () => { recognition.onresult?.(final('My answer so far.')); });
+  await act(async () => { recognition.onend?.(); });
+  for (let silent = 0; silent < MAX_SILENT_RESTARTS; silent++) {
+    await act(async () => { recognition.onerror?.({ error: 'no-speech' }); recognition.onend?.(); });
+  }
+  assert.equal(recognition.starts, 1 + 1 + MAX_SILENT_RESTARTS);
+  await act(async () => { recognition.onend?.(); });
+  assert.equal(recognition.starts, 1 + 1 + MAX_SILENT_RESTARTS, 'no restart beyond the silent cap');
+  assert.ok(renderer.root.findByProps({ 'aria-label': 'Start microphone' }));
+  assert.equal(renderer.root.findByType('textarea').props.value, 'My answer so far.');
+  assert.match(text(renderer.toJSON()), /Listening paused after a silence/);
+});
+
+test('a fatal error after speech stops without restarting and keeps the transcript', async t => {
+  useFakeSpeech(t);
+  const renderer = await create();
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  const recognition = FakeRecognition.latest!;
+  await act(async () => { recognition.onresult?.(final('Mitral regurgitation.')); });
+  await act(async () => { recognition.onerror?.({ error: 'network' }); recognition.onend?.(); });
+  assert.equal(recognition.starts, 1);
+  assert.match(text(renderer.toJSON()), /speech service could not be reached/);
+  assert.equal(renderer.root.findByType('textarea').props.value, 'Mitral regurgitation.');
+  assert.equal(renderer.root.findByType('textarea').props.disabled, false);
+});
+
+test('after a successful submission the next capture starts fresh; after a failure it appends', async t => {
+  useFakeSpeech(t);
+  const submitted: string[] = [];
+  const props = { label: 'Answer', submitLabel: 'Submit answer', onSubmit: (value: string) => submitted.push(value) };
+  const renderer = await create(props);
+  t.after(() => act(() => renderer.unmount()));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  await act(async () => { FakeRecognition.latest!.onresult?.(final('Answer one.')); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Submit answer' }).props.onClick(); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  assert.equal(renderer.root.findByType('textarea').props.value, 'Answer one.', 'text is not wiped before new speech arrives');
+  await act(async () => { FakeRecognition.latest!.onresult?.(final('Answer two.')); });
+  assert.equal(renderer.root.findByType('textarea').props.value, 'Answer two.');
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Stop microphone' }).props.onClick(); });
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Submit answer' }).props.onClick(); });
+  await act(() => renderer.update(React.createElement(VoiceCapture, { ...props, error: 'Network error. Please retry.' })));
+  await act(async () => { renderer.root.findByProps({ 'aria-label': 'Start microphone' }).props.onClick(); });
+  await act(async () => { FakeRecognition.latest!.onresult?.(final('And one more point.')); });
+  assert.equal(renderer.root.findByType('textarea').props.value, 'Answer two. And one more point.');
+  assert.deepEqual(submitted, ['Answer one.', 'Answer two.']);
+});
+
+test('shows a notice that browser speech recognition may send audio to Google or Apple', async () => {
+  const renderer = await create();
+  assert.match(text(renderer.toJSON()), /Google or Apple/);
+  assert.match(SPEECH_PRIVACY_NOTICE, /Type instead/);
+  await act(async () => { renderer.unmount(); });
 });

@@ -13,3 +13,4 @@ export * from './stations/cardiovascular';
 export * from './stations/cases';
 export * from './examiners';
 export * from './publicCases';
+export * from './signs';

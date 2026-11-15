@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { ExamRecord, PracticeMode } from '@paces/shared';
 import { isExplicitExamCompletion } from '@paces/shared/client';
 import { createRequestGeneration, shouldApplyExaminationResponse } from '../lib/examRequest';
+import { examineErrorMessage, examineHeaders } from '../lib/examApi';
 import { VoiceCapture } from './VoiceCapture';
 
 interface Props {
@@ -68,12 +69,12 @@ export default function ExaminingPhase({ caseData, timeRemaining, findings, onFi
     const timeout = setTimeout(() => controller.abort(), 35000);
     try {
       const response = await fetch('/api/examine', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+        method: 'POST', headers: examineHeaders(), signal: controller.signal,
         body: JSON.stringify({ caseId: caseData.id, phase: 'examine', userInput: said, sessionToken }),
       });
       const data = await response.json();
       if (!shouldApplyExaminationResponse(requestGenerationRef.current, generation, mountedRef.current)) return;
-      if (!response.ok) throw new Error(data.error || 'Unable to process this examination step.');
+      if (!response.ok) throw new Error(examineErrorMessage(data, 'Unable to process this examination step.'));
       if (!data.sessionToken) throw new Error('The examination session could not be saved. Please try again.');
       setLastAction('');
       onSessionToken(data.sessionToken);

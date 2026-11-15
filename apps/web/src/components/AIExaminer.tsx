@@ -10,12 +10,15 @@ import { VivaChat } from './VivaChat';
 import { AIScoreFeedback } from './AIScoreFeedback';
 import ExaminingPhase from './ExaminingPhase';
 import { buildVivaRecoveryRequest } from '../lib/examRequest';
+import { examineErrorMessage, examineHeaders, getAccessCode, setAccessCode } from '../lib/examApi';
 import { PilotSetup } from './PilotSetup';
 
 type Phase = 'select-case' | 'setup' | 'briefing' | 'examining' | 'presenting' | 'viva' | 'feedback';
 
 function CaseSelector({ onSelect }: { onSelect: (item: CaseSummary) => void }) {
   const pilotCase = publicCases.find(item => item.id === 'cardio-01')!;
+  const [accessCode, setAccessCodeState] = useState('');
+  useEffect(() => { setAccessCodeState(getAccessCode()); }, []);
   return <div className="pilot-intro">
     <section>
       <p className="eyebrow">Deliberate spoken rehearsal</p>
@@ -29,6 +32,13 @@ function CaseSelector({ onSelect }: { onSelect: (item: CaseSummary) => void }) {
     <aside className="card">
       <p className="eyebrow">Before you begin</p>
       <p className="small" style={{ lineHeight: 1.65 }}>Use a quiet room and allow microphone access. You can edit every transcript or type instead. Headphones are optional; examiner questions are text.</p>
+      <label className="small" htmlFor="pilot-access-code" style={{ display: 'block', marginBottom: 12 }}>
+        Pilot access code
+        <input id="pilot-access-code" type="password" autoComplete="off" value={accessCode}
+          onChange={event => { setAccessCodeState(event.target.value); setAccessCode(event.target.value); }}
+          style={{ display: 'block', width: '100%', marginTop: 4 }} />
+        <span className="muted">Provided by the pilot organiser. Not needed for local development.</span>
+      </label>
       <div className="notice"><strong>Pilot boundaries</strong><br />This supplements bedside teaching. It does not observe hands-on technique, physical comfort, dignity or real patient welfare. Case content is draft pending clinician review.</div>
     </aside>
   </div>;
@@ -110,12 +120,12 @@ export const AIExaminer: React.FC = () => {
     setSubmitting(true); setError(null); setLastSubmission(text);
     try {
       const response = await fetch('/api/examine', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: examineHeaders(),
         signal: AbortSignal.timeout(35000),
         body: JSON.stringify({ caseId: currentCase.id, phase: 'present', userInput: text, sessionToken }),
       });
       const data = await response.json();
-      if (!response.ok || !data.vivaQuestion) throw new Error(data.error || 'Unable to begin viva.');
+      if (!response.ok || !data.vivaQuestion) throw new Error(examineErrorMessage(data, 'Unable to begin viva.'));
       setConversation([
         { role: 'candidate', content: text },
         { role: 'examiner', content: data.examinerResponse, questionId: data.vivaQuestion.id },
@@ -142,7 +152,7 @@ export const AIExaminer: React.FC = () => {
     setConversation(updated); setError(null);
     try {
       const response = await fetch('/api/examine', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: examineHeaders(),
         signal: AbortSignal.timeout(35000),
         body: JSON.stringify({ caseId: currentCase.id, phase: 'viva', userInput: text, sessionToken }),
       });
@@ -153,7 +163,7 @@ export const AIExaminer: React.FC = () => {
         setAnswersRecorded(5);
         setFinalAnswer(text);
       }
-      if (!response.ok) throw new Error(data.error || 'Unable to process your answer.');
+      if (!response.ok) throw new Error(examineErrorMessage(data, 'Unable to process your answer.'));
       if (data.complete && data.feedback) {
         setConversation(previous => [...previous, { role: 'examiner', content: data.examinerResponse }]);
         setExaminerFeedback(data.feedback); transitionTo('feedback');
@@ -182,14 +192,14 @@ export const AIExaminer: React.FC = () => {
     setSubmitting(true); setError(null);
     try {
       const response = await fetch('/api/examine', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: examineHeaders(),
         signal: AbortSignal.timeout(35000),
         body: JSON.stringify({ caseId: currentCase.id, ...buildVivaRecoveryRequest(answersRecorded, 5, finalAnswer, sessionToken) }),
       });
       const data = await response.json();
       if (data.sessionToken) setSessionToken(data.sessionToken);
       if (data.feedbackReady) { setFeedbackReady(true); setAnswersRecorded(5); }
-      if (!response.ok || !data.feedback) throw new Error(data.error || 'Unable to generate feedback.');
+      if (!response.ok || !data.feedback) throw new Error(examineErrorMessage(data, 'Unable to generate feedback.'));
       setExaminerFeedback(data.feedback); setFeedbackReady(false); transitionTo('feedback');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to generate feedback. Please try again.');
