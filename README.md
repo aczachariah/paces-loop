@@ -23,6 +23,10 @@ This project is structured as a monorepo using **pnpm workspaces**:
 └── tsconfig.json             # Root TypeScript configuration
 ```
 
+## Heart-sound drill (prototype)
+
+`/signs` is a timed "what do you hear?" drill using 32 real recordings from open PhysioNet datasets (ODC-By 1.0), scored deterministically against the datasets' own labels (pending clinician review). See [docs/sign-station.md](docs/sign-station.md) and [apps/web/public/signs/ATTRIBUTION.md](apps/web/public/signs/ATTRIBUTION.md).
+
 ## Getting Started
 
 ### Prerequisites
