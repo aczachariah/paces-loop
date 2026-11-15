@@ -1,0 +1,763 @@
+{
+  "version": 1,
+  "generatedBy": "scripts/build-heart-sound-library.py",
+  "sources": {
+    "physionet-2016": {
+      "name": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "url": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0."
+    },
+    "circor-2022": {
+      "name": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "url": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0."
+    }
+  },
+  "clips": [
+    {
+      "id": "hs-01",
+      "audio": "/signs/audio/hs-01.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0001",
+      "originalFile": "c0001.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "mitral-regurgitation"
+      }
+    },
+    {
+      "id": "hs-02",
+      "audio": "/signs/audio/hs-02.mp3",
+      "durationSec": 11.7,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0002",
+      "originalFile": "c0002.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "mitral-regurgitation"
+      }
+    },
+    {
+      "id": "hs-03",
+      "audio": "/signs/audio/hs-03.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0003",
+      "originalFile": "c0003.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "normal",
+        "diagnosis": "normal"
+      }
+    },
+    {
+      "id": "hs-04",
+      "audio": "/signs/audio/hs-04.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0004",
+      "originalFile": "c0004.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "mitral-regurgitation"
+      }
+    },
+    {
+      "id": "hs-05",
+      "audio": "/signs/audio/hs-05.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0006",
+      "originalFile": "c0006.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "normal",
+        "diagnosis": "normal"
+      }
+    },
+    {
+      "id": "hs-06",
+      "audio": "/signs/audio/hs-06.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0007",
+      "originalFile": "c0007.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "normal",
+        "diagnosis": "normal"
+      }
+    },
+    {
+      "id": "hs-07",
+      "audio": "/signs/audio/hs-07.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0009",
+      "originalFile": "c0009.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "mitral-regurgitation"
+      }
+    },
+    {
+      "id": "hs-08",
+      "audio": "/signs/audio/hs-08.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0010",
+      "originalFile": "c0010.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "mitral-regurgitation"
+      }
+    },
+    {
+      "id": "hs-09",
+      "audio": "/signs/audio/hs-09.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0011",
+      "originalFile": "c0011.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "normal",
+        "diagnosis": "normal"
+      }
+    },
+    {
+      "id": "hs-10",
+      "audio": "/signs/audio/hs-10.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0012",
+      "originalFile": "c0012.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "mitral-regurgitation"
+      }
+    },
+    {
+      "id": "hs-11",
+      "audio": "/signs/audio/hs-11.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0014",
+      "originalFile": "c0014.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "aortic-stenosis"
+      }
+    },
+    {
+      "id": "hs-12",
+      "audio": "/signs/audio/hs-12.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0015",
+      "originalFile": "c0015.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "aortic-stenosis"
+      }
+    },
+    {
+      "id": "hs-13",
+      "audio": "/signs/audio/hs-13.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0019",
+      "originalFile": "c0019.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "aortic-stenosis"
+      }
+    },
+    {
+      "id": "hs-14",
+      "audio": "/signs/audio/hs-14.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0021",
+      "originalFile": "c0021.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "aortic-stenosis"
+      }
+    },
+    {
+      "id": "hs-15",
+      "audio": "/signs/audio/hs-15.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0025",
+      "originalFile": "c0025.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "aortic-stenosis"
+      }
+    },
+    {
+      "id": "hs-16",
+      "audio": "/signs/audio/hs-16.mp3",
+      "durationSec": 12.1,
+      "source": "physionet-2016",
+      "sourceName": "PhysioNet/Computing in Cardiology Challenge 2016 (training-c)",
+      "sourceUrl": "https://physionet.org/content/challenge-2016/1.0.0/",
+      "recordId": "c0026",
+      "originalFile": "c0026.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Clifford GD et al. Classification of Normal/Abnormal Heart Sound Recordings: the PhysioNet/Computing in Cardiology Challenge 2016. Computing in Cardiology 2016;43:609-612. Data from PhysioNet (Goldberger AL et al., Circulation 2000;101(23):e215-e220), licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "adult",
+        "site": null
+      },
+      "labels": {
+        "heartSounds": "abnormal",
+        "diagnosis": "aortic-stenosis"
+      }
+    },
+    {
+      "id": "hs-17",
+      "audio": "/signs/audio/hs-17.mp3",
+      "durationSec": 9.2,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "46778_MV",
+      "originalFile": "46778_MV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "MV",
+        "siteName": "Mitral area (apex)"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "holosystolic",
+        "systolicShape": "plateau",
+        "systolicGrade": 1,
+        "diastolicMurmur": "present"
+      }
+    },
+    {
+      "id": "hs-18",
+      "audio": "/signs/audio/hs-18.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "50238_MV",
+      "originalFile": "50238_MV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "MV",
+        "siteName": "Mitral area (apex)"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "early-systolic",
+        "systolicShape": "decrescendo",
+        "systolicGrade": 2,
+        "diastolicMurmur": "present"
+      }
+    },
+    {
+      "id": "hs-19",
+      "audio": "/signs/audio/hs-19.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "44514_PV",
+      "originalFile": "44514_PV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "PV",
+        "siteName": "Pulmonary area"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "holosystolic",
+        "systolicShape": "plateau",
+        "systolicGrade": 3,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-20",
+      "audio": "/signs/audio/hs-20.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "84718_PV",
+      "originalFile": "84718_PV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "PV",
+        "siteName": "Pulmonary area"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "holosystolic",
+        "systolicShape": "plateau",
+        "systolicGrade": 3,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-21",
+      "audio": "/signs/audio/hs-21.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "85207_TV",
+      "originalFile": "85207_TV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "TV",
+        "siteName": "Tricuspid area"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "holosystolic",
+        "systolicShape": "plateau",
+        "systolicGrade": 3,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-22",
+      "audio": "/signs/audio/hs-22.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "36327_TV",
+      "originalFile": "36327_TV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "TV",
+        "siteName": "Tricuspid area"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "holosystolic",
+        "systolicShape": "plateau",
+        "systolicGrade": 1,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-23",
+      "audio": "/signs/audio/hs-23.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "45843_MV",
+      "originalFile": "45843_MV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "MV",
+        "siteName": "Mitral area (apex)"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "holosystolic",
+        "systolicShape": "decrescendo",
+        "systolicGrade": 1,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-24",
+      "audio": "/signs/audio/hs-24.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "50159_MV",
+      "originalFile": "50159_MV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "MV",
+        "siteName": "Mitral area (apex)"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "early-systolic",
+        "systolicShape": "plateau",
+        "systolicGrade": 1,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-25",
+      "audio": "/signs/audio/hs-25.mp3",
+      "durationSec": 11.3,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "68204_PV",
+      "originalFile": "68204_PV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "PV",
+        "siteName": "Pulmonary area"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "early-systolic",
+        "systolicShape": "plateau",
+        "systolicGrade": 1,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-26",
+      "audio": "/signs/audio/hs-26.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "40840_PV",
+      "originalFile": "40840_PV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "PV",
+        "siteName": "Pulmonary area"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "mid-systolic",
+        "systolicShape": "diamond",
+        "systolicGrade": 3,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-27",
+      "audio": "/signs/audio/hs-27.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "46065_TV",
+      "originalFile": "46065_TV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "child",
+        "site": "TV",
+        "siteName": "Tricuspid area"
+      },
+      "labels": {
+        "murmur": "present",
+        "systolicMurmur": "present",
+        "systolicTiming": "mid-systolic",
+        "systolicShape": "diamond",
+        "systolicGrade": 3,
+        "diastolicMurmur": "absent"
+      }
+    },
+    {
+      "id": "hs-28",
+      "audio": "/signs/audio/hs-28.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "49653_MV",
+      "originalFile": "49653_MV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "MV",
+        "siteName": "Mitral area (apex)"
+      },
+      "labels": {
+        "murmur": "absent"
+      }
+    },
+    {
+      "id": "hs-29",
+      "audio": "/signs/audio/hs-29.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "49829_AV",
+      "originalFile": "49829_AV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "AV",
+        "siteName": "Aortic area"
+      },
+      "labels": {
+        "murmur": "absent"
+      }
+    },
+    {
+      "id": "hs-30",
+      "audio": "/signs/audio/hs-30.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "49963_PV",
+      "originalFile": "49963_PV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "PV",
+        "siteName": "Pulmonary area"
+      },
+      "labels": {
+        "murmur": "absent"
+      }
+    },
+    {
+      "id": "hs-31",
+      "audio": "/signs/audio/hs-31.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "50017_TV",
+      "originalFile": "50017_TV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "TV",
+        "siteName": "Tricuspid area"
+      },
+      "labels": {
+        "murmur": "absent"
+      }
+    },
+    {
+      "id": "hs-32",
+      "audio": "/signs/audio/hs-32.mp3",
+      "durationSec": 12.1,
+      "source": "circor-2022",
+      "sourceName": "The CirCor DigiScope Phonocardiogram Dataset v1.0.3",
+      "sourceUrl": "https://physionet.org/content/circor-heart-sound/1.0.3/",
+      "recordId": "50117_MV",
+      "originalFile": "50117_MV.wav",
+      "licence": "ODC-By-1.0",
+      "attribution": "Oliveira J, Renna F, Costa P, Nogueira M, Oliveira AC, Elola A, Ferreira C, Jorge A, Bahrami Rad A, Reyna M, Sameni R, Clifford G, Coimbra M. The CirCor DigiScope Phonocardiogram Dataset (version 1.0.3). PhysioNet (2022), https://doi.org/10.13026/tshs-mw03. Also: Oliveira J et al., IEEE JBHI 2022;26(6):2524-2535. Licensed under the Open Data Commons Attribution License v1.0.",
+      "status": "Real recording, open dataset; labels from dataset, pending clinician review",
+      "context": {
+        "population": "paediatric",
+        "ageGroup": "adolescent",
+        "site": "MV",
+        "siteName": "Mitral area (apex)"
+      },
+      "labels": {
+        "murmur": "absent"
+      }
+    }
+  ]
+}
